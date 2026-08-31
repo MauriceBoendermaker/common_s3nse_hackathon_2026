@@ -1,0 +1,556 @@
+# =========================
+# Environment / Secrets
+# =========================
+
+.env
+.env.*
+!.env.development
+!.env.example
+*.env.local
+
+# =========================
+# Python
+# =========================
+
+.venv/
+*venv
+*.venv
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# =========================
+# Node / JavaScript / Next.js
+# =========================
+
+node_modules/
+
+.next/
+dist/
+build/
+out/
+coverage/
+*.tsbuildinfo
+
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# =========================
+# PHP / Laravel
+# =========================
+
+vendor/
+storage/*.key
+bootstrap/cache/*.php
+.phpunit.result.cache
+
+# =========================
+# Docker
+# =========================
+
+docker-compose.override.yml
+
+# =========================
+# Editors / IDEs
+# =========================
+
+# JetBrains: PhpStorm, PyCharm, IntelliJ, Rider
+.idea/
+*.sln.iml
+
+# Visual Studio
+.vs/
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+*.code-workspace
+
+# VS Code local history
+.history/
+
+# Ionide
+.ionide/
+
+# Local history
+.localhistory/
+.vshistory/
+
+# =========================
+# Visual Studio User Files
+# =========================
+
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# =========================
+# Visual Studio / .NET Build Results
+# =========================
+
+[Dd]ebug/
+[Dd]ebugPublic/
+[Dd]ebugPS/
+
+[Rr]elease/
+[Rr]eleases/
+[Rr]eleasePS/
+
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+artifacts/
+
+# =========================
+# .NET / ASP.NET
+# =========================
+
+project.lock.json
+project.fragment.lock.json
+
+ScaffoldingReadMe.txt
+
+# =========================
+# Test Results
+# =========================
+
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+
+BenchmarkDotNet.Artifacts/
+
+# =========================
+# Visual Studio Generated Files
+# =========================
+
+*_i.c
+*_p.c
+*_i.h
+*_h.h
+*_wpftmp.csproj
+
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
+*.pdb
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+!Directory.Build.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*.tlog
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+Generated\ Files/
+
+# =========================
+# Visual C++ Cache
+# =========================
+
+ipch/
+
+*.aps
+*.ncb
+*.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+
+# =========================
+# Visual Studio Profiling / Tracing
+# =========================
+
+*.psess
+*.vsp
+*.vspx
+*.sap
+*.e2e
+
+# =========================
+# Visual Studio Extensions
+# =========================
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Guidance Automation Toolkit
+*.gpState
+
+# TeamCity
+_TeamCity*
+
+# DotCover
+*.dotCover
+
+# AxoCover
+.axoCover/*
+!.axoCover/settings.json
+
+# NCrunch
+_NCrunch*
+_NCrunch_*
+.*crunch*.local.xml
+nCrunchTemp_*
+
+# MightyMoose
+*.mm.*
+AutoTest.Net/
+
+# Chutzpah
+_Chutzpah*
+
+# JustCode
+.JustCode
+
+# CodeRush
+.cr/
+.cr/personal
+
+# Tabs Studio
+*.tss
+
+# Telerik JustMock
+*.jmconfig
+
+# GhostDoc
+*.GhostDoc.xml
+
+# MFractor
+.mfractor/
+
+# =========================
+# Code Coverage
+# =========================
+
+coverage*.json
+coverage*.xml
+coverage*.info
+
+*.coverage
+*.coveragexml
+
+# =========================
+# NuGet
+# =========================
+
+*.nupkg
+*.snupkg
+
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+packages/
+!packages/repositories.config
+
+*.nuget.props
+*.nuget.targets
+
+# =========================
+# Paket
+# =========================
+
+.paket/paket.exe
+paket-files/
+
+# =========================
+# F# / FAKE
+# =========================
+
+.fake/
+
+# =========================
+# Fody
+# =========================
+
+FodyWeavers.xsd
+
+# =========================
+# Publish / Deployment
+# =========================
+
+publish/
+
+*.[Pp]ublish.xml
+*.Publish.xml
+*.pubxml
+*.azurePubxml
+*.publishproj
+*.publishsettings
+
+PublishScripts/
+
+# =========================
+# Azure
+# =========================
+
+csx/
+*.build.csdef
+
+ecf/
+rcf/
+
+# Azure Stream Analytics
+ASALocalRun/
+
+# =========================
+# Windows Store / Packages
+# =========================
+
+AppPackages/
+BundleArtifacts/
+Package.StoreAssociation.xml
+_pkginfo.txt
+
+*.appx
+*.appxbundle
+*.appxupload
+
+# =========================
+# Windows Installer
+# =========================
+
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# =========================
+# ClickOnce / InstallShield
+# =========================
+
+[Ee]xpress/
+
+# =========================
+# Web Workbench / Sass
+# =========================
+
+.sass-cache/
+
+# =========================
+# DocProject
+# =========================
+
+DocProject/buildhelp/
+DocProject/Help/*.HxT
+DocProject/Help/*.HxC
+DocProject/Help/*.hhc
+DocProject/Help/*.hhk
+DocProject/Help/*.hhp
+DocProject/Help/Html2
+DocProject/Help/html
+
+# =========================
+# SQL / Database
+# =========================
+
+sql/
+
+*.mdf
+*.ldf
+*.ndf
+
+App_Data/*.mdf
+App_Data/*.ldf
+
+*.db-shm
+*.db-wal
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+
+# =========================
+# Business Intelligence
+# =========================
+
+*.rdl.data
+*.bim.layout
+*.bim_*.settings
+*.rptproj.rsuser
+
+*- [Bb]ackup.rdl
+*- [Bb]ackup ([0-9]).rdl
+*- [Bb]ackup ([0-9][0-9]).rdl
+
+# =========================
+# RIA / Silverlight
+# =========================
+
+Generated_Code/
+
+# =========================
+# Visual Studio LightSwitch
+# =========================
+
+**/*.HTMLClient/GeneratedArtifacts
+**/*.DesktopClient/GeneratedArtifacts
+**/*.DesktopClient/ModelManifest.xml
+**/*.Server/GeneratedArtifacts
+**/*.Server/ModelManifest.xml
+
+_Pvt_Extensions
+
+# =========================
+# Visual Studio 6
+# =========================
+
+*.plg
+*.opt
+*.vbw
+*.vbp
+*.dsw
+*.dsp
+
+# =========================
+# TFS
+# =========================
+
+$tf/
+
+# =========================
+# Microsoft Fakes
+# =========================
+
+FakesAssemblies/
+
+# =========================
+# BizTalk
+# =========================
+
+*.btp.cs
+*.btm.cs
+*.odx.cs
+*.xsd.cs
+
+# =========================
+# OpenCover
+# =========================
+
+OpenCover/
+
+# =========================
+# MSBuild
+# =========================
+
+*.binlog
+
+# =========================
+# NVIDIA Nsight
+# =========================
+
+*.nvuser
+
+# =========================
+# Node.js Tools for Visual Studio
+# =========================
+
+.ntvs_analysis.dat
+
+# =========================
+# StyleCop
+# =========================
+
+[Ss]tyle[Cc]op.*
+![Ss]tyle[Cc]op.targets
+StyleCopReport.xml
+
+# =========================
+# Misc Visual Studio / Generated
+# =========================
+
+ClientBin/
+orleans.codegen.cs
+healthchecksdb
+MigrationBackup/
+
+# Visual Studio cache files
+*.[Cc]ache
+!?*.[Cc]ache/
+
+# =========================
+# Upgrade / Backup Artifacts
+# =========================
+
+_UpgradeReport_Files/
+Backup*/
+UpgradeLog*.XML
+UpgradeLog*.htm
+ServiceFabricBackup/
+*.rptproj.bak
+
+# =========================
+# Claude / AI Tools
+# =========================
+
+.claude/
+.superpowers
+
+# =========================
+# Project-specific
+# =========================
+
+docs
+
+# =========================
+# Temporary / Misc Files
+# =========================
+
+*.tmp
+*.swp
+
+~$*
+*~
+
+# =========================
+# OS Files
+# =========================
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
