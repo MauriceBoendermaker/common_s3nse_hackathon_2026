@@ -22,7 +22,7 @@ function LegalLayout({
   onNavigate: (view: SiteView) => void;
 }) {
   return (
-    <div className="content-page content-page--legal">
+    <div className="content-page">
       <ContentHero
         eyebrow={eyebrow}
         title={title}

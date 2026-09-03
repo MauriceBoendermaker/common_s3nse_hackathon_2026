@@ -2507,11 +2507,6 @@ select {
   padding: 0 0 34px;
 }
 
-.content-page--narrow,
-.content-page--legal {
-  max-width: 1040px;
-  margin: 0 auto;
-}
 
 .content-hero {
   display: flex;
