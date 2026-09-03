@@ -1,5 +1,4 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
-import { Fingerprint } from "lucide-react";
 
 const classNames = (...values: Array<string | false | undefined>) =>
   values.filter(Boolean).join(" ");
@@ -48,7 +47,18 @@ export function StatusPill({
 export function BrandMark() {
   return (
     <span className="brand-mark" aria-hidden="true">
-      <Fingerprint size={18} strokeWidth={1.8} />
+      <svg viewBox="0 0 44 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+          className="brand-mark__inputs"
+          d="M2 5.5h7.5L18 14M2 16h12M2 26.5h7.5L18 18"
+        />
+        <path
+          className="brand-mark__gate"
+          d="m18 11.5 4.5-4.5 4.5 4.5v9L22.5 25 18 20.5v-9Z"
+        />
+        <path className="brand-mark__output" d="M27 16h12" />
+        <circle className="brand-mark__node" cx="41" cy="16" r="2" />
+      </svg>
     </span>
   );
 }

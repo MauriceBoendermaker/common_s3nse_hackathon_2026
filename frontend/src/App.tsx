@@ -3,6 +3,7 @@ import { AppHeader } from "./components/AppHeader";
 import { BorrowerView } from "./components/BorrowerView";
 import { HomeView } from "./components/HomeView";
 import { LenderView } from "./components/LenderView";
+import { SiteFooter } from "./components/SiteFooter";
 import { PRODUCT_CONFIG } from "./config/product";
 import {
   evaluatePolicy,
@@ -114,11 +115,7 @@ export default function App() {
         ) : null}
       </main>
 
-      <footer className="site-footer">
-        <span>Frontend demo · No proof or funds move onchain</span>
-        <span className="footer-separator" aria-hidden="true" />
-        <span>{PRODUCT_CONFIG.network}</span>
-      </footer>
+      <SiteFooter onNavigate={setView} />
     </div>
   );
 }

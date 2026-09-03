@@ -106,7 +106,7 @@ export function LenderView({
       <div className="workflow-shell lender-shell">
         <aside className="workflow-sidebar lender-sidebar">
           <div className="request-sidebar__header">
-            <span className="avatar" aria-hidden="true">A</span>
+            <span className="avatar avatar--ens" aria-hidden="true">A</span>
             <div><strong>{PRODUCT_CONFIG.borrower.ensName}</strong><span>ENS applicant identity</span></div>
           </div>
           <div className="request-sidebar__amount">

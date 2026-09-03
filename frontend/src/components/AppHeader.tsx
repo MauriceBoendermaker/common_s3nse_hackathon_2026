@@ -1,5 +1,6 @@
 import { Check, ChevronDown, RotateCcw, WalletCards } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { PRIMARY_NAVIGATION } from "../config/navigation";
 import { PRODUCT_CONFIG } from "../config/product";
 import type { AppView } from "../state/demo";
 import { BrandMark, Button, StatusPill } from "./ui";
@@ -13,12 +14,6 @@ type AppHeaderProps = {
   onReset: () => void;
 };
 
-const navigation: Array<{ view: AppView; label: string }> = [
-  { view: "overview", label: "Overview" },
-  { view: "borrower", label: "Request credit" },
-  { view: "lender", label: "Provide capital" },
-];
-
 export function AppHeader({
   view,
   walletConnected,
@@ -28,23 +23,53 @@ export function AppHeader({
   onReset,
 }: AppHeaderProps) {
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const walletControlRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!walletMenuOpen) return;
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!walletControlRef.current?.contains(event.target as Node)) {
+        setWalletMenuOpen(false);
+      }
+    };
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setWalletMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [walletMenuOpen]);
+
+  const navigate = (nextView: AppView) => {
+    setWalletMenuOpen(false);
+    onNavigate(nextView);
+  };
 
   return (
     <header className="app-header">
       <div className="header-inner">
-        <button className="brand" type="button" onClick={() => onNavigate("overview")}>
+        <button className="brand" type="button" onClick={() => navigate("overview")}>
           <BrandMark />
           <span>{PRODUCT_CONFIG.name}</span>
         </button>
 
         <nav className="primary-nav" aria-label="Product areas">
-          {navigation.map((item) => (
+          {PRIMARY_NAVIGATION.map((item) => (
             <button
               key={item.view}
               type="button"
               className={view === item.view ? "is-active" : undefined}
               aria-current={view === item.view ? "page" : undefined}
-              onClick={() => onNavigate(item.view)}
+              onClick={() => navigate(item.view)}
             >
               {item.label}
             </button>
@@ -57,13 +82,14 @@ export function AppHeader({
             Demo · {PRODUCT_CONFIG.network}
           </StatusPill>
 
-          <div className="wallet-control">
+          <div className="wallet-control" ref={walletControlRef}>
             <Button
               variant={walletConnected ? "secondary" : "dark"}
               className="wallet-button"
               icon={walletConnected ? <ChevronDown size={15} /> : <WalletCards size={16} />}
               aria-expanded={walletMenuOpen}
               aria-haspopup="menu"
+              aria-controls={walletConnected ? "wallet-menu" : undefined}
               onClick={() => {
                 if (walletConnected) {
                   setWalletMenuOpen((open) => !open);
@@ -76,7 +102,7 @@ export function AppHeader({
             </Button>
 
             {walletMenuOpen ? (
-              <div className="wallet-menu" role="menu">
+              <div className="wallet-menu" id="wallet-menu" role="menu">
                 <div className="wallet-menu__identity">
                   <span className="wallet-avatar" aria-hidden="true">A</span>
                   <span>
