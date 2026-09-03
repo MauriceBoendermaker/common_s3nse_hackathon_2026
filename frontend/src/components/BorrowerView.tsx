@@ -29,7 +29,7 @@ type BorrowerViewProps = {
 const borrowerSteps = [
   { label: "Connect identity", description: "Anchor the passport to ENS" },
   { label: "Set loan terms", description: "Choose amount and duration" },
-  { label: "Create ZK proof", description: "Prove the lender’s policy" },
+  { label: "Create ZK proof", description: "Prove the required policy" },
   { label: "Compare offers", description: "Select a privately priced loan" },
 ] as const;
 
@@ -55,8 +55,8 @@ export function BorrowerView({
     <div className="product-page" id="top">
       <header className="product-page__header">
         <div>
-          <span className="eyebrow">Borrower journey</span>
-          <h1>Get credit without exposing your portfolio.</h1>
+          <span className="eyebrow">Credit application</span>
+          <h1>Create a private credit request.</h1>
         </div>
         <StatusPill tone={demo.requestPublished ? "success" : "neutral"}>
           {demo.requestPublished ? <Check size={14} /> : <span className="network-dot" />}
@@ -76,7 +76,7 @@ export function BorrowerView({
           <FlowSteps steps={borrowerSteps} currentStep={currentStep} />
           <div className="sidebar-proof-note">
             <span className="zk-mark">ZK</span>
-            <p><strong>Nothing raw is published.</strong> Only a pass/fail proof reaches lenders.</p>
+            <p><strong>Nothing raw is published.</strong> Only a pass/fail proof reaches capital providers.</p>
           </div>
         </aside>
 
@@ -192,7 +192,7 @@ export function BorrowerView({
                 <span className="task-icon task-icon--zk">ZK</span>
                 <div>
                   <span className="section-label">Step 3 of 4</span>
-                  <h2>{demo.proofStatus === "ready" ? "Your ZK proof is ready" : "Generate a policy-bound proof"}</h2>
+                  <h2>{demo.proofStatus === "ready" ? "Your ZK proof is ready" : "Generate a ZK eligibility proof"}</h2>
                   <p>
                     {demo.proofStatus === "ready"
                       ? "The proof contains the result—not your underlying financial data."
@@ -272,8 +272,8 @@ export function BorrowerView({
                 <span className="task-icon"><CircleDollarSign size={22} /></span>
                 <div>
                   <span className="section-label">Step 4 of 4</span>
-                  <h2>{demo.offerStatus === "none" ? "Your private request is live" : "A lender has made an offer"}</h2>
-                  <p>Only the public terms and your sealed ZK proof are visible to lenders.</p>
+                  <h2>{demo.offerStatus === "none" ? "Credit request published" : "Capital offer received"}</h2>
+                  <p>Only the public terms and your sealed ZK proof are visible to capital providers.</p>
                 </div>
               </div>
 
@@ -289,16 +289,16 @@ export function BorrowerView({
               {demo.offerStatus === "none" ? (
                 <div className="waiting-state">
                   <span className="waiting-pulse" aria-hidden="true" />
-                  <div><strong>Waiting for lender verification</strong><span>Continue the demo from the lender workspace.</span></div>
+                  <div><strong>Waiting for policy verification</strong><span>Continue from the capital provider workspace.</span></div>
                   <Button variant="secondary" onClick={onOpenLender} icon={<ArrowRight size={16} />}>
-                    Open lender view
+                    Open capital provider view
                   </Button>
                 </div>
               ) : (
                 <div className="offer-card">
                   <div className="offer-card__lender">
                     <span className="avatar" aria-hidden="true">V</span>
-                    <span><strong>{PRODUCT_CONFIG.lender.ensName}</strong><small>Verified lending pool</small></span>
+                    <span><strong>{PRODUCT_CONFIG.lender.ensName}</strong><small>Verified capital pool</small></span>
                     <StatusPill tone="success"><Check size={14} /> Proof accepted</StatusPill>
                   </div>
                   <div className="offer-metrics">

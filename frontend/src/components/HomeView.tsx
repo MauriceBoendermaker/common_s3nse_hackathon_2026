@@ -20,22 +20,22 @@ export function HomeView({ onStart }: HomeViewProps) {
       <section className="home-hero">
         <div className="home-copy">
           <span className="eyebrow">{PRODUCT_CONFIG.category}</span>
-          <h1>Private DeFi credit, verified with ZK proofs.</h1>
+          <h1>Verify credit eligibility without sharing portfolio data.</h1>
           <p>
-            Borrowers prove that they meet a lending policy without exposing balances,
-            positions, or wallet history. Their reputation stays portable through ENS.
+            Credit applicants prove that they meet a funding policy without exposing
+            balances, positions, or wallet history. Their reputation stays portable through ENS.
           </p>
 
           <div className="hero-actions">
             <Button onClick={() => onStart("borrower")} icon={<ArrowRight size={16} />}>
-              I need credit
+              Request credit
             </Button>
             <Button
               variant="secondary"
               onClick={() => onStart("lender")}
               icon={<Building2 size={16} />}
             >
-              I fund loans
+              Provide capital
             </Button>
           </div>
 
@@ -52,7 +52,7 @@ export function HomeView({ onStart }: HomeViewProps) {
       <section className="how-it-works" aria-labelledby="how-heading">
         <div className="how-heading">
           <span className="eyebrow">One private credit flow</span>
-          <h2 id="how-heading">From sealed data to a priced loan.</h2>
+          <h2 id="how-heading">From private data to a credit offer.</h2>
         </div>
         <ol>
           <li>
@@ -61,11 +61,11 @@ export function HomeView({ onStart }: HomeViewProps) {
           </li>
           <li>
             <span>02</span>
-            <div><strong>Generate a ZK proof</strong><p>Prove only the lender’s required thresholds.</p></div>
+            <div><strong>Generate a ZK proof</strong><p>Prove only the required funding thresholds.</p></div>
           </li>
           <li>
             <span>03</span>
-            <div><strong>Receive an offer</strong><p>Lenders compete without seeing the raw portfolio.</p></div>
+            <div><strong>Receive an offer</strong><p>Capital providers respond without seeing the raw portfolio.</p></div>
           </li>
         </ol>
       </section>

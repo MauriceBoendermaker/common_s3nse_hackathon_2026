@@ -19,7 +19,7 @@ export function PrivacyBoundary({ compact = false }: PrivacyBoundaryProps) {
 
       <div className="privacy-columns">
         <div>
-          <span className="privacy-column__label">The lender receives</span>
+          <span className="privacy-column__label">The capital provider receives</span>
           {PRODUCT_CONFIG.proofClaims.slice(0, compact ? 3 : 4).map((claim) => (
             <span className="privacy-item" key={claim.label}>
               <Check size={14} /> {claim.label}: pass or fail
@@ -27,7 +27,7 @@ export function PrivacyBoundary({ compact = false }: PrivacyBoundaryProps) {
           ))}
         </div>
         <div className="privacy-columns__hidden">
-          <span className="privacy-column__label">The lender never receives</span>
+          <span className="privacy-column__label">The capital provider never receives</span>
           {PRODUCT_CONFIG.hiddenData.slice(0, compact ? 3 : 4).map((item) => (
             <span className="privacy-item" key={item}>
               <EyeOff size={14} /> {item}

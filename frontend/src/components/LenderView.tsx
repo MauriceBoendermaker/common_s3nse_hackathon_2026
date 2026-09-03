@@ -33,7 +33,7 @@ const lenderSteps = [
   { label: "Review request", description: "Inspect public loan terms" },
   { label: "Verify ZK proof", description: "Apply an underwriting policy" },
   { label: "Price the loan", description: "Create a private offer" },
-  { label: "Borrower decision", description: "Return the offer to the borrower" },
+  { label: "Applicant decision", description: "Return the offer to the applicant" },
 ] as const;
 
 function getLenderStep(demo: DemoState) {
@@ -69,8 +69,8 @@ export function LenderView({
       <div className="product-page" id="top">
         <header className="product-page__header">
           <div>
-            <span className="eyebrow">Lender journey</span>
-            <h1>Verify borrowers without collecting their data.</h1>
+            <span className="eyebrow">Capital provider</span>
+            <h1>Review and verify credit requests.</h1>
           </div>
         </header>
 
@@ -78,10 +78,10 @@ export function LenderView({
           <span className="task-icon"><Inbox size={22} /></span>
           <span className="section-label">Request inbox</span>
           <h2>No private credit request yet</h2>
-          <p>Complete the borrower flow first, or load the prepared hackathon scenario.</p>
+          <p>Complete the credit application first, or load the prepared hackathon scenario.</p>
           <div className="empty-workspace__actions">
             <Button variant="secondary" onClick={onOpenBorrower} icon={<ArrowLeft size={16} />}>
-              Open borrower flow
+              Open credit application
             </Button>
             <Button onClick={onLoadSample} icon={<ArrowRight size={16} />}>
               Load sample request
@@ -97,8 +97,8 @@ export function LenderView({
     <div className="product-page" id="top">
       <header className="product-page__header">
         <div>
-          <span className="eyebrow">Lender journey</span>
-          <h1>Price the proof—not the portfolio.</h1>
+          <span className="eyebrow">Capital provider</span>
+          <h1>Review and verify a credit request.</h1>
         </div>
         <StatusPill tone="success"><ShieldCheck size={14} /> ZK proof attached</StatusPill>
       </header>
@@ -107,7 +107,7 @@ export function LenderView({
         <aside className="workflow-sidebar lender-sidebar">
           <div className="request-sidebar__header">
             <span className="avatar" aria-hidden="true">A</span>
-            <div><strong>{PRODUCT_CONFIG.borrower.ensName}</strong><span>ENS borrower identity</span></div>
+            <div><strong>{PRODUCT_CONFIG.borrower.ensName}</strong><span>ENS applicant identity</span></div>
           </div>
           <div className="request-sidebar__amount">
             <span>Requested</span>
@@ -137,13 +137,13 @@ export function LenderView({
                 was requested, stored, or disclosed.
               </p>
               <div className="receipt-lines">
-                <span><strong>Borrower</strong>{PRODUCT_CONFIG.borrower.ensName}</span>
-                <span><strong>Lender</strong>{PRODUCT_CONFIG.lender.ensName}</span>
+                <span><strong>Credit applicant</strong>{PRODUCT_CONFIG.borrower.ensName}</span>
+                <span><strong>Capital provider</strong>{PRODUCT_CONFIG.lender.ensName}</span>
                 <span><strong>ZK receipt</strong>{PRODUCT_CONFIG.borrower.proofId}</span>
               </div>
               <div className="task-card__action task-card__action--center">
                 <Button onClick={onOpenBorrower} icon={<ArrowRight size={16} />}>
-                  View borrower decision
+                  View applicant decision
                 </Button>
               </div>
             </Card>
@@ -155,11 +155,11 @@ export function LenderView({
                 </span>
                 <div>
                   <span className="section-label">Zero-knowledge verification</span>
-                  <h2>{eligible ? "Borrower satisfies this policy" : "Policy not satisfied"}</h2>
+                  <h2>{eligible ? "Credit requirements satisfied" : "Policy not satisfied"}</h2>
                   <p>
                     {eligible
                       ? "Every claim passed. The witness and exact values remain hidden."
-                      : "One or more thresholds failed. Exact borrower values remain hidden."}
+                      : "One or more thresholds failed. Exact applicant values remain hidden."}
                   </p>
                 </div>
               </div>
@@ -233,7 +233,7 @@ export function LenderView({
                 <div>
                   <span className="section-label">Zero-knowledge underwriting</span>
                   <h2>Set the policy this proof must satisfy</h2>
-                  <p>You receive one result per claim. The borrower’s exact values stay hidden.</p>
+                  <p>You receive one result per claim. The applicant’s exact values stay hidden.</p>
                 </div>
               </div>
 

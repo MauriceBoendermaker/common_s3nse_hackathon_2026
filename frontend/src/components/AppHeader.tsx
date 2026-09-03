@@ -15,8 +15,8 @@ type AppHeaderProps = {
 
 const navigation: Array<{ view: AppView; label: string }> = [
   { view: "overview", label: "Overview" },
-  { view: "borrower", label: "Borrower" },
-  { view: "lender", label: "Lender" },
+  { view: "borrower", label: "Request credit" },
+  { view: "lender", label: "Provide capital" },
 ];
 
 export function AppHeader({

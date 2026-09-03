@@ -20,7 +20,7 @@ export const PRODUCT_CONFIG = {
   proofClaims: [
     {
       label: "Asset threshold",
-      statement: "Portfolio meets the lender minimum",
+      statement: "Portfolio meets the policy minimum",
     },
     {
       label: "Debt ratio",
