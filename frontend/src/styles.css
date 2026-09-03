@@ -3000,6 +3000,12 @@ select {
   background: #203129;
 }
 
+.page-cta .button--secondary:hover:not(:disabled) {
+  border-color: #557060;
+  color: #eaf4ee;
+  background: #2c4438;
+}
+
 .security-boundary-wrap {
   max-width: 850px;
 }

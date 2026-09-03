@@ -78,7 +78,7 @@ const faqGroups = [
 
 export function FaqPage({ onNavigate }: { onNavigate: (view: SiteView) => void }) {
   return (
-    <div className="content-page content-page--narrow">
+    <div className="content-page">
       <ContentHero
         eyebrow="Frequently asked questions"
         title="Clear answers before you connect."
