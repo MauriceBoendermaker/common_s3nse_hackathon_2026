@@ -9,7 +9,7 @@
 | **Submission deadline** | **Sat 5 Sep 2026, 09:00** (verified on commons3nse.cryptocanal.org: *"Sept 5 - 09:00 Hackathon ends. Final submissions."*) |
 | **Wall clock remaining** | ~38 h · **realistically 20–24 workable hours** |
 | **Contract chain** | **Solana devnet only.** No contracts are authored or deployed on Ethereum |
-| **Bounties targeted** | SuperteamNL/Solana $2,000 · ENS $2,000 · Mobula $2,750 + $2,750 credits |
+| **Bounties targeted** | **SuperteamNL/Solana $2,000 · ENS $2,000.** Mobula is out of scope |
 | **Judging needs** | open repo · demo video/deck · deployed contract addresses · **"functional with no hard-coded demonstrations"** |
 
 ---
@@ -36,6 +36,13 @@ so it is fully compatible with "Solana-only smart contracts" while keeping the $
 > settlement leg stops working. That is the sentence for the slide — and it is a genuinely novel use, since
 > ENS is almost always confined to EVM payments.
 
+> ⚠️ **Dropping Mobula does not mean dropping real data.** Mobula was the mechanism for deleting
+> `DEMO_WITNESS`, and that constant is what fails the ENS bounty's *"functional with no hard-coded
+> demonstrations"* rule. Workstream B therefore survives with a different source: the witness is now read
+> **directly from Solana RPC**, keyless (§4B). That is arguably a better story for these two bounties —
+> "we read the chain ourselves" beats "we called a vendor API" — and it removes a third-party dependency
+> from the demo path.
+
 ---
 
 ## 1. What is already proven (executed, not researched)
@@ -55,7 +62,13 @@ highest-risk assumptions into settled facts, and the artifacts move straight int
 | 8 | **ENS infra is live on Sepolia** | Registry `0x0000…2e1e`, PublicResolver `0x8FADE6…B7dD`, ETHRegistrarController `0xFED6a9…5B72`, ERC-6538 Registry `0x6538E6…6538` — all return bytecode. **We deploy none of these; we only call them** |
 | 9 | **Names are available** | `privatecredit.eth` / `commons3nse.eth` available on Sepolia @ **0.00313 ETH/yr**. ⚠️ `alice.eth` and `vault.eth` are **taken** |
 | 10 | **Solana devnet is live** | `solana-core 4.3.0-beta.3`, SPL Token program present |
-| 11 | **Mobula endpoints are real** | `demo-api.mobula.io` serves the whole surface **keyless with `access-control-allow-origin: *`** |
+| 11 | **The witness is readable keyless from Solana** | On a live wallet sampled from a recent block: `getBalance` → 15.86 SOL; `getTokenAccountsByOwner` → **41 token accounts**; `getSignaturesForAddress` → 1000/page |
+| 12 | **Prices are readable keyless** | Jupiter `lite-api.jup.ag/price/v3` → SOL `usdPrice` + `decimals` + `liquidity`; CoinGecko `simple/price` also works as fallback |
+| 13 | ⚠️ **Ethereum *mainnet* RPC is unreachable from this network** | DNS resolves in 6 ms, connection then times out (19 s) on llamarpc / drpc / publicnode / merkle; `1rpc.io/eth` is **discontinued**. **Sepolia and both Solana clusters answer in <100 ms** |
+
+> Finding 13 shapes two decisions: source the witness from **Solana**, not Ethereum mainnet; and use ENS on
+> **Sepolia**, which works. Test again on venue wifi before assuming it is permanent — but do not build the
+> demo on a path that is dead from your own desk.
 
 > **Portability bonus, already proven but not deployed:** the same proof also verifies under a
 > snarkjs-exported Solidity verifier (compiles under solc 0.8.36, 1845 bytes). We are **not** deploying it —
@@ -123,7 +136,7 @@ the borrower view. This is the single disqualifying item.
 | "Forward and reverse resolution match", "Controller verified" | static JSX; renders unconditionally | ENS forward + reverse resolution, registry `owner()`, SIWE signature |
 | ENS names everywhere (`alice.eth`, `vault.lender.eth`) | display strings; **no ENS call exists in the repo** | ENS must carry a *function* — this is the bounty's explicit disqualifier |
 | "Passport commitment `0x91ca…0f42`" | frozen literal, never recomputed, never published | Poseidon commitment over the real witness + blinding salt |
-| 3 "passport sources" with Connect/Retry | `toggleSource` pushes a string into an array. Zero network calls | **Mobula adapter** → real balances, debt, account age |
+| 3 "passport sources" with Connect/Retry | `toggleSource` pushes a string into an array. Zero network calls | **Solana RPC adapter** → real balances, collateral quality, account age |
 | "Policy fingerprint `0x…`" | `minAssets*17 + maxDebtRatio*101 + …` — invertible over 72 possible policies | `Poseidon(policy params)`, computed identically in circuit, program and client |
 | "Generate ZK proof" → receipt | 1400 ms timer; no circuit, no prover, no artifact | snarkjs in a Web Worker |
 | Proof ID / circuit / **"Verifier contract · Sepolia"** / valid-until | frozen literals containing Unicode ellipses | real hashes, real timestamps — and the verifier row now says **Solana program ID**, not Sepolia |
@@ -146,9 +159,10 @@ the borrower view. This is the single disqualifying item.
 
 ```
                     BORROWER BROWSER (the only place raw data exists)
-                    ┌──────────────────────────────────────────────┐
-   Mobula ─────────▶│ witness {assets, debtRatio, historyMonths,   │
-   (server-proxied) │          restrictedExposure} + salt          │
+   Solana RPC ─────▶┌──────────────────────────────────────────────┐
+   + Jupiter prices │ witness {assets, collateralQuality,          │
+   (server-proxied) │          historyMonths, restrictedExposure}  │
+                    │          + salt                              │
                     │            │                                 │
                     │            ▼  snarkjs in a Web Worker        │
                     │   proof (256 B) + public signals             │
@@ -203,7 +217,7 @@ weakening versus full ERC-5564 stealth — it costs key compartmentalisation, no
 |---|---|---|
 | 0 | `passportCommitment` | Poseidon over the private snapshot + salt |
 | 1 | `eligible` | the only bit of underwriting that is disclosed |
-| 2 | `policyHash` | Poseidon(minAssets, maxDebtRatio, minHistoryMonths, screenExposure) — **recomputed on-chain** from the stored Policy account, so the client is trusted for nothing |
+| 2 | `policyHash` | Poseidon over the four policy thresholds — **recomputed on-chain** from the stored Policy account, so the client is trusted for nothing. (Second threshold is `maxDebtRatio` today; pending decision §9.3 it becomes `minCollateralQuality` — same shape, same circuit) |
 | 3 | `subjectCommitment` | **`Poseidon(namehash(name), blindingFactor)`** |
 | 4 | `expiry` | unix seconds; program checks against the cluster clock |
 | 5 | `nullifier` | `Poseidon(salt, policyHash, verifierCommitment)` → seeds the nullifier PDA |
@@ -255,44 +269,52 @@ Split the single `useState` into two clients talking over an explicit channel.
 > HTTP 200. Never use a TS `enum` in the backend — `node --watch src/index.ts` dies with
 > `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`; mirror the frontend's string-union style.
 
-### B — Mobula witness adapter · ~5 h · kills the disqualifier, wins bounty #3
+### B — Real witness from Solana RPC · ~5 h · **kills the ENS disqualifier**
 
-Highest value per hour in this plan: **zero blockchain risk, pure Node 22 `fetch`**, and it removes the
-`DEMO_WITNESS` constant that would otherwise sink the ENS bounty too.
+This is no longer a bounty play, but it is still **mandatory**: it deletes `DEMO_WITNESS`, and that constant
+is what fails the ENS bounty's "no hard-coded demonstrations" rule. Every input is **keyless and verified
+reachable** (§1 #11–12), with no vendor account, no rate-limit roulette and no third party on the demo path.
 
-`backend/src/adapters/mobula.ts` → `buildWitness(evmAddress, solAddress?)`, behind
-`GET /api/passport/:address`. Default `MOBULA_BASE=https://demo-api.mobula.io` (**keyless**, works
-immediately); `MOBULA_API_KEY` + `https://api.mobula.io` as an env-only upgrade. The key stays server-side —
-exactly what the security page already promises.
+`backend/src/adapters/solanaPortfolio.ts` → `buildWitness(solAddress)`, behind
+`GET /api/passport/:address`. Read from **Solana mainnet** (real balances) while settling on **devnet** —
+and say so in the UI, or a judge will spot the mismatch in ten seconds.
 
-Mobula covers **both** ecosystems, so a passport can span the borrower's EVM *and* Solana holdings via
-`wallets=<evm>,<sol>` — which fits a Solana-settled loan nicely.
+| Field | Source | Notes |
+|---|---|---|
+| `assets` | `getBalance` + `getTokenAccountsByOwner` **∩ explicit mint allowlist**, priced via Jupiter `price/v3` | allowlist is **mandatory**, see below |
+| `collateralQuality` | share of `assets` held in allowlisted stables + LSTs | replaces `debtRatio`, see below |
+| `historyMonths` | `getSignaturesForAddress` paged backwards with `before` | **bounded** scan, see below |
+| `restrictedExposure` | holdings ∩ a denylist of mints committed in the repo | fully measurable, no vendor verdict |
 
-| Field | Source |
-|---|---|
-| `assets` | `/api/1/wallet/portfolio` **∩ allowlist** + `Σ defi.totalDepositedUSD` |
-| `debtRatio` | `Σ defi.totalBorrowedUSD / assets` from `/api/2/wallet/defi-positions` |
-| `historyMonths` | `/api/2/wallet/funding` → `data.date` |
-| `restrictedExposure` | see correction below |
+**Three things to get right:**
 
-> **Four demo-breaking corrections, each verified live:**
+- **The allowlist is mandatory, not a refinement.** The live wallet I sampled had **41 token accounts**,
+  nearly all junk mints. Summing everything produces a meaningless collateral figure — exactly the failure
+  mode that would make a judge's own wallet render a nonsense number. Allowlist: wSOL, USDC, USDT, JitoSOL,
+  mSOL, bSOL, JupSOL, WBTC, WETH. Commit it; show it in the UI.
+- **Account age must be a bounded scan.** `getSignaturesForAddress` returns 1000 per page and only walks
+  newest→oldest, so an active wallet could need hundreds of pages. But the policy is a **threshold**, so a
+  *lower bound* is enough: page backwards with a hard cap (~10 pages), stop the moment the oldest signature
+  seen predates the cutoff, and if fewer than 1000 come back you have the true age. If neither holds,
+  **fail closed** and report "cannot establish" rather than guessing.
+- **Price with liquidity, not just price.** Jupiter returns `liquidity` alongside `usdPrice` — ignore
+  anything thin. Cache prices for 60 s; stamp every response with `sources` + `fetchedAt` and surface those
+  in the UI next to the passport. That provenance strip is what kills the "hard-coded demo" objection in
+  front of an ENS judge.
+
+> **⚠️ Decision needed: `debtRatio` cannot be honestly sourced on Solana in the time available.** Measuring
+> real borrows means parsing Kamino/MarginFi/Solend positions (SDK-heavy), and the EVM alternative — Aave's
+> keyless `getUserAccountData` — is unusable because Ethereum mainnet RPC is unreachable from this network
+> (§1 #13). **Faking it is not an option; it is the exact thing that disqualifies the project.**
 >
-> - **`isBlacklisted` is a contract-*capability* flag, not a reputation verdict.** USDC, USDT and stETH all
->   return `true`. Screening on it makes **every realistic wallet fail** its own policy check. Drop
->   `/token/security` from the witness entirely (it is also 50 of ~84 credits).
-> - **`filterSpam=true` is a no-op.** `minliq` does 100% of the work, and **neither** prunes `data.assets[]`
->   — the array keeps all 5,855 rows including a $4.1T spam entry.
-> - **`total_wallet_balance` is not collateral.** For vitalik.eth, ~88% of the filtered $721k is meme tokens
->   against $20k of real ETH. An **allowlist intersection** (ETH/WETH/WBTC/cbBTC/USDC/USDT/DAI/stETH/
->   wstETH/SOL) is **mandatory** for the `assets` figure, not a refinement.
-> - **Use `/api/2/wallet/funding` for account age, not `/wallet/activity`** — activity's index doesn't reach
->   before ~2018 and reported vitalik.eth 2.5 years late, enough to flip a `minHistoryMonths` check.
+> **Recommendation: replace the "debt ratio" claim with a collateral-quality claim** ("at least X% of the
+> portfolio is in stables/LSTs"). The circuit is structurally *unchanged* — still four comparisons, still
+> `LessEqThan`/`GreaterEqThan` — only the field's meaning and the UI labels change. It is genuinely
+> measurable, genuinely relevant to credit, and honest.
 >
-> Also: latency is **8–23 s** on heavy wallets (not sub-second) — cap the input or pre-warm. The demo API
-> **429s at ~10 rapid calls** with ~10 s recovery and is shared with every other hacker at the event, so
-> get a free key from admin.mobula.io tonight as insurance. Aave V3 aTokens are inconsistently present in
-> `/portfolio`, so you need **both** the `totalDepositedUSD` addition **and** a case-insensitive de-dup
-> guard. Mobula prices testnets at **0** — read the passport from **mainnet** and say so in the UI.
+> The alternative is a real Solana lending-protocol adapter as a stretch goal. Do not start it before
+> hour 14. Copy cost either way: "debt ratio" appears throughout the borrower view, lender policy builder,
+> proof receipt and content pages — fold it into the Sepolia→Solana copy sweep (§7).
 
 ### C — ZK credential pipeline · ~4 h · already 70% done (§1)
 
@@ -429,20 +451,23 @@ shows an interstitial judges must click through.
 
 ## 5. Bounty alignment
 
+Two bounties, $4,000 combined. Every hour should be traceable to one of these rows.
+
 | Bounty | Requirement | Satisfied by | Confidence |
 |---|---|---|---|
 | **Solana $2,000** | build on Solana | On-chain Groth16 verification, nullifier PDA, SPL escrow, full loan lifecycle — **every contract in the project** | High on design; **gated on devnet funding** |
+| | | Witness also read from Solana RPC, so the chain is the data layer too — not just a settlement venue | High |
 | **ENS $2,000** | ENS beyond name display | ENS text record is the **only** input to deriving the Solana payout address | High — but only with D shipped |
 | | actual privacy mechanism | Rotating one-time payout addresses (verified working, §1 #7) | High |
 | | protected from whom, stated | Portfolio hidden from lender; payout addresses + credit graph hidden from all chain observers | High, **if** §3.2 salting is applied |
-| | no hard-coded demos | Workstream B removes `DEMO_WITNESS`; delete all four "Preview…" buttons | **Currently failing** |
-| **Mobula $2,750** | real data integration | Multi-endpoint witness adapter spanning EVM **and** Solana holdings, server-side key, `sourceUrls` surfaced in UI | High — lowest risk of the three |
+| | no hard-coded demos | **Workstream B** removes `DEMO_WITNESS`; delete all four "Preview…" buttons | **Currently failing** |
 
-Surfacing the Mobula `sourceUrls` + `fetchedAt` next to the passport kills the "hard-coded demo" objection
-for **both** the ENS and Mobula judges in one stroke.
+Surface the `sources` + `fetchedAt` provenance strip next to the passport. With Mobula gone, that strip is
+now your *only* on-screen evidence that the witness is real — it is the thing that answers an ENS judge who
+asks "how do I know this isn't hard-coded?"
 
 **Note:** the SuperteamNL rubric could not be retrieved — TAIKAI's prizes page returns nothing to an
-unauthenticated fetch. Log in and read it; it is now your primary bounty.
+unauthenticated fetch. Log in and read it; it is now a co-primary bounty.
 
 ---
 
@@ -454,7 +479,7 @@ A, B, C and D share almost no surface area — parallelise them.
 |---|---|---|
 | **0–1** | **Get devnet SOL first.** Register the ENS name + prove a `setText`/`getText` round-trip. Green Render deploy with a stub. | 💰 **SOL confirmed landed?** If not, escalate faucets immediately — there is no second chain |
 | 0–3 | **A**: backend store, REST, polling, two separate clients | |
-| 1–5 | **B**: Mobula adapter → real witness replaces `DEMO_WITNESS` | ✅ Ship this even if all else slips |
+| 1–5 | **B**: Solana RPC adapter → real witness replaces `DEMO_WITNESS` | ✅ Non-negotiable — without it the ENS bounty fails on rule 4 |
 | 3–7 | **C**: circuit → local ptau → browser proving in a worker → `vk_data.rs` | |
 | 7–9 | Byte-conversion + `cargo test` green against own fixtures | 🚦 **Do not deploy before this is green** |
 | 5–9 | **D**: ENS payout derivation end-to-end | |
@@ -470,12 +495,13 @@ half instead" escape hatch that previously existed, so the ladder now degrades *
 2. **Program won't deploy in time** → verify the proof **off-chain in the backend** with `snarkjs.verify`
    and keep the escrow logic as a `solana-test-validator` demo. You lose the "deployed contract address"
    deliverable — say so plainly rather than implying otherwise.
-3. **Everything slips** → **A + B + C alone** (real trust boundary, real data, real proof) is still a
-   dramatically better submission than today's simulation, and still qualifies for Mobula.
+3. **Everything slips** → **A + B + C + D** (real trust boundary, real data, real proof, real ENS
+   mechanism) still makes a complete, honest **ENS** submission with off-chain verification. That is
+   $2,000 of the $4,000 preserved, and it needs no Rust at all.
 
 **Honest total:** the workstreams sum to ~28 h against 20–24 available. Something must go. Cut in this
 order: Swarm → the Credential Passport polish → `draw`/`repay` on-chain (demo funding and repayment only)
-→ Solana-side sweep UI.
+→ Solana-side sweep UI. **Do not cut B** — it is the cheapest bounty-critical item on the list.
 
 ---
 
@@ -505,8 +531,9 @@ that fails this demo profile", and "Load sample request" — or make the last se
 
 1. **Trusted setup.** A hackathon phase-2 means whoever ran it could forge proofs. ≥2 contributions,
    published transcript, stated plainly.
-2. **Data honesty.** The proof shows the policy holds over data from Mobula. We prove honest *computation*,
-   not honest *data*. Naming this earns credit.
+2. **Data honesty.** The proof shows the policy holds over data the borrower's own client read from Solana
+   RPC — nothing forces that snapshot to be the *right* wallet. We prove honest *computation*, not honest
+   *data*. Naming this earns credit; the production answer is a signed attestation over the snapshot.
 3. **ENS resolution.** The Solana program cannot read ENS; it accepts the payout address the lender's client
    supplies. The payer is the party incentivised to resolve correctly, and the borrower detects
    misdirection immediately (no funds arrive). This is the softest edge in the design — name it first.
@@ -521,18 +548,24 @@ that fails this demo profile", and "Load sample request" — or make the last se
 
 ## 9. Open decisions
 
-1. **Is Mobula in scope?** You named ENS and Solana. Mobula is worth **more than either** ($2,750 + $2,750
-   credits), needs **no blockchain work**, and removes the hard-coded-witness disqualifier.
-   **Recommendation: yes, and do it first.**
+1. ~~Is Mobula in scope?~~ **Settled: no.** The witness now comes from Solana RPC (§4B), which is keyless
+   and verified reachable. Note this *raises* the stakes on B — with no vendor API, the provenance strip is
+   the only visible evidence the data is real.
 2. ~~Which chain settles the loan?~~ **Settled: Solana.** ENS derives the payout address (§3.1).
-3. **Browser proving or server proving?** Browser keeps "the witness never leaves the device" true and is
+3. **⚠️ Open — what replaces `debtRatio`?** It cannot be honestly sourced on Solana in the time available
+   (§4B). **Recommendation: a collateral-quality claim**, which leaves the circuit structurally unchanged.
+   The alternative is a Kamino/MarginFi adapter as a post-hour-14 stretch. **This is the one decision that
+   changes UI copy, so make it before the copy sweep, not after.**
+4. **Browser proving or server proving?** Browser keeps "the witness never leaves the device" true and is
    verified viable (§1 #6). Server proving is simpler but **makes the security page false**.
    **Recommendation: browser.**
-4. **Sepolia name or mainnet name?** A Sepolia name is ~free but judges who resolve it on mainnet see
-   nothing. ~$8 for a mainnet name with the same text record is the cheapest credibility purchase
-   available — and since we deploy nothing on Ethereum, mainnet costs only the registration.
-5. **Does anything still need Sepolia ETH?** Only ENS registration + `setText` (~0.004 ETH total). If you
-   use a mainnet name you already own, the Sepolia dependency disappears entirely.
+5. **Sepolia name or mainnet name?** A mainnet name (~$8) is more credible to a judge who resolves it, but
+   **Ethereum mainnet RPC is unreachable from this network** (§1 #13) — you could not verify your own
+   record from your desk, and the demo would depend on venue wifi behaving differently.
+   **Recommendation: Sepolia, which is verified working.** Put the chain, the exact name and a Sepolia
+   Etherscan link on screen and in the README so nobody resolves it on mainnet and sees nothing. Register a
+   mainnet name too only if you have spare time at the venue and mainnet RPC works there.
+6. **Does anything still need Sepolia ETH?** Only ENS registration + `setText` (~0.004 ETH total).
 
 ---
 
