@@ -1,14 +1,31 @@
-import { Check, ChevronDown, RotateCcw, WalletCards } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Menu,
+  RotateCcw,
+  WalletCards,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { PRIMARY_NAVIGATION } from "../config/navigation";
+import {
+  APP_NAVIGATION,
+  isApplicationView,
+  PUBLIC_NAVIGATION,
+  type SiteView,
+} from "../config/navigation";
 import { PRODUCT_CONFIG } from "../config/product";
-import type { AppView } from "../state/demo";
 import { BrandMark, Button, StatusPill } from "./ui";
+import { RouteLink } from "./RouteLink";
 
 type AppHeaderProps = {
-  view: AppView;
+  view: SiteView;
   walletConnected: boolean;
-  onNavigate: (view: AppView) => void;
+  walletIdentity: {
+    ensName: string;
+    walletAddress: string;
+  };
+  onNavigate: (view: SiteView) => void;
   onConnect: () => void;
   onDisconnect: () => void;
   onReset: () => void;
@@ -17,13 +34,22 @@ type AppHeaderProps = {
 export function AppHeader({
   view,
   walletConnected,
+  walletIdentity,
   onNavigate,
   onConnect,
   onDisconnect,
   onReset,
 }: AppHeaderProps) {
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const walletControlRef = useRef<HTMLDivElement>(null);
+  const appView = isApplicationView(view);
+  const navigation = appView ? APP_NAVIGATION : PUBLIC_NAVIGATION;
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setWalletMenuOpen(false);
+  }, [view]);
 
   useEffect(() => {
     if (!walletMenuOpen) return;
@@ -35,9 +61,7 @@ export function AppHeader({
     };
 
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setWalletMenuOpen(false);
-      }
+      if (event.key === "Escape") setWalletMenuOpen(false);
     };
 
     document.addEventListener("pointerdown", closeOnOutsideClick);
@@ -49,30 +73,37 @@ export function AppHeader({
     };
   }, [walletMenuOpen]);
 
-  const navigate = (nextView: AppView) => {
-    setWalletMenuOpen(false);
-    onNavigate(nextView);
-  };
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [mobileMenuOpen]);
 
   return (
     <header className="app-header">
       <div className="header-inner">
-        <button className="brand" type="button" onClick={() => navigate("overview")}>
+        <RouteLink view="overview" onNavigate={onNavigate} className="brand">
           <BrandMark />
           <span>{PRODUCT_CONFIG.name}</span>
-        </button>
+        </RouteLink>
 
-        <nav className="primary-nav" aria-label="Product areas">
-          {PRIMARY_NAVIGATION.map((item) => (
-            <button
+        <nav
+          className={`primary-nav${appView ? " primary-nav--app" : " primary-nav--public"}`}
+          aria-label={appView ? "Application areas" : "Main navigation"}
+        >
+          {navigation.map((item) => (
+            <RouteLink
               key={item.view}
-              type="button"
+              view={item.view}
+              onNavigate={onNavigate}
               className={view === item.view ? "is-active" : undefined}
-              aria-current={view === item.view ? "page" : undefined}
-              onClick={() => navigate(item.view)}
+              ariaCurrent={view === item.view ? "page" : undefined}
             >
               {item.label}
-            </button>
+            </RouteLink>
           ))}
         </nav>
 
@@ -82,61 +113,96 @@ export function AppHeader({
             Demo · {PRODUCT_CONFIG.network}
           </StatusPill>
 
-          <div className="wallet-control" ref={walletControlRef}>
-            <Button
-              variant={walletConnected ? "secondary" : "dark"}
-              className="wallet-button"
-              icon={walletConnected ? <ChevronDown size={15} /> : <WalletCards size={16} />}
-              aria-expanded={walletMenuOpen}
-              aria-haspopup="menu"
-              aria-controls={walletConnected ? "wallet-menu" : undefined}
-              onClick={() => {
-                if (walletConnected) {
-                  setWalletMenuOpen((open) => !open);
-                } else {
-                  onConnect();
-                }
-              }}
-            >
-              {walletConnected ? PRODUCT_CONFIG.borrower.ensName : "Connect wallet"}
-            </Button>
+          {appView ? (
+            <div className="wallet-control" ref={walletControlRef}>
+              <Button
+                variant={walletConnected ? "secondary" : "dark"}
+                className="wallet-button"
+                icon={walletConnected ? <ChevronDown size={15} /> : <WalletCards size={16} />}
+                aria-expanded={walletMenuOpen}
+                aria-haspopup="menu"
+                aria-controls={walletConnected ? "wallet-menu" : undefined}
+                onClick={() => {
+                  if (walletConnected) setWalletMenuOpen((open) => !open);
+                  else onConnect();
+                }}
+              >
+                {walletConnected ? walletIdentity.ensName : "Connect wallet"}
+              </Button>
 
-            {walletMenuOpen ? (
-              <div className="wallet-menu" id="wallet-menu" role="menu">
-                <div className="wallet-menu__identity">
-                  <span className="wallet-avatar" aria-hidden="true">A</span>
-                  <span>
-                    <strong>{PRODUCT_CONFIG.borrower.ensName}</strong>
-                    <small>{PRODUCT_CONFIG.borrower.walletAddress}</small>
-                  </span>
-                  <Check size={16} className="success-icon" aria-label="Connected" />
+              {walletMenuOpen ? (
+                <div className="wallet-menu" id="wallet-menu" role="menu">
+                  <div className="wallet-menu__identity">
+                    <span className="wallet-avatar" aria-hidden="true">
+                      {walletIdentity.ensName.charAt(0).toUpperCase()}
+                    </span>
+                    <span>
+                      <strong>{walletIdentity.ensName}</strong>
+                      <small>{walletIdentity.walletAddress}</small>
+                    </span>
+                    <Check size={16} className="success-icon" aria-label="Connected" />
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onReset();
+                      setWalletMenuOpen(false);
+                    }}
+                  >
+                    <RotateCcw size={15} /> Reset demo
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onDisconnect();
+                      setWalletMenuOpen(false);
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                  <small className="wallet-menu__note">Wallet confirmations are simulated in this frontend.</small>
                 </div>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onReset();
-                    setWalletMenuOpen(false);
-                  }}
-                >
-                  <RotateCcw size={15} /> Reset demo
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    onDisconnect();
-                    setWalletMenuOpen(false);
-                  }}
-                >
-                  Disconnect
-                </button>
-                <small className="wallet-menu__note">MetaMask connection is simulated in this frontend.</small>
-              </div>
-            ) : null}
-          </div>
+              ) : null}
+            </div>
+          ) : (
+            <RouteLink view="borrower" onNavigate={onNavigate} className="button button--dark header-launch">
+              <span>Launch demo</span><span className="button__icon"><ArrowRight size={15} /></span>
+            </RouteLink>
+          )}
+
+          {!appView ? (
+            <button
+              type="button"
+              className="mobile-menu-button"
+              aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          ) : null}
         </div>
       </div>
+
+      {mobileMenuOpen && !appView ? (
+        <nav className="mobile-navigation" id="mobile-navigation" aria-label="Mobile navigation">
+          {PUBLIC_NAVIGATION.map((item) => (
+            <RouteLink
+              key={item.view}
+              view={item.view}
+              onNavigate={onNavigate}
+              className={view === item.view ? "is-active" : undefined}
+              ariaCurrent={view === item.view ? "page" : undefined}
+            >
+              {item.label}<ArrowRight size={15} />
+            </RouteLink>
+          ))}
+          <RouteLink view="about" onNavigate={onNavigate}>About<ArrowRight size={15} /></RouteLink>
+        </nav>
+      ) : null}
     </header>
   );
 }

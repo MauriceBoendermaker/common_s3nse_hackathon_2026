@@ -52,20 +52,24 @@ export function HomeView({ onStart }: HomeViewProps) {
       <section className="how-it-works" aria-labelledby="how-heading">
         <div className="how-heading">
           <span className="eyebrow">One private credit flow</span>
-          <h2 id="how-heading">From private data to a credit offer.</h2>
+          <h2 id="how-heading">From private evidence to an active loan.</h2>
         </div>
         <ol>
           <li>
             <span>01</span>
-            <div><strong>Build a passport</strong><p>Connect financial sources to an ENS identity.</p></div>
+            <div><strong>Build a passport</strong><p>Connect financial sources to a verified ENS identity.</p></div>
           </li>
           <li>
             <span>02</span>
-            <div><strong>Generate a ZK proof</strong><p>Prove only the required funding thresholds.</p></div>
+            <div><strong>Receive a policy</strong><p>A provider sends the exact underwriting requirements.</p></div>
           </li>
           <li>
             <span>03</span>
-            <div><strong>Receive an offer</strong><p>Capital providers respond without seeing the raw portfolio.</p></div>
+            <div><strong>Generate a ZK proof</strong><p>Return only policy-bound pass or fail outputs.</p></div>
+          </li>
+          <li>
+            <span>04</span>
+            <div><strong>Choose and repay</strong><p>Compare funded offers, draw USDC, and track repayment.</p></div>
           </li>
         </ol>
       </section>
