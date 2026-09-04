@@ -24,15 +24,36 @@ type PrivacyBoundaryProps = {
   proof?: ProofSubmission | null;
 };
 
-/** The layout is fixed by `protocol-types.ts` — index order matters. */
-const SIGNAL_LABELS: Array<{ key: keyof ProofSubmission["publicSignals"]; label: string }> = [
-  { key: "passportCommitment", label: "[0] passportCommitment" },
-  { key: "eligible", label: "[1] eligible" },
-  { key: "policyHash", label: "[2] policyHash" },
-  { key: "subjectCommitment", label: "[3] subjectCommitment" },
-  { key: "expiry", label: "[4] expiry" },
-  { key: "nullifier", label: "[5] nullifier" },
-  { key: "verifierCommitment", label: "[6] verifierCommitment" },
+/**
+ * The layout is fixed by `protocol-types.ts` — index order matters, so this
+ * array stays in wire order. What a reader sees is `label`; the circuit's own
+ * name for the signal is kept in `signal` and surfaced as a tooltip, so the
+ * panel reads as English without losing the technical name.
+ */
+const SIGNAL_LABELS: Array<{
+  key: keyof ProofSubmission["publicSignals"];
+  label: string;
+  signal: string;
+}> = [
+  {
+    key: "passportCommitment",
+    label: "A commitment to the passport, not the passport",
+    signal: "passportCommitment",
+  },
+  { key: "eligible", label: "Whether the policy was met", signal: "eligible" },
+  { key: "policyHash", label: "Which policy was checked", signal: "policyHash" },
+  {
+    key: "subjectCommitment",
+    label: "A pseudonym for the applicant",
+    signal: "subjectCommitment",
+  },
+  { key: "expiry", label: "When this result stops counting", signal: "expiry" },
+  { key: "nullifier", label: "A one-time replay guard", signal: "nullifier" },
+  {
+    key: "verifierCommitment",
+    label: "Who the proof was made for",
+    signal: "verifierCommitment",
+  },
 ];
 
 function renderSignal(value: string | number | boolean): string {
@@ -68,15 +89,17 @@ export function PrivacyBoundary({ compact = false, proof = null }: PrivacyBounda
             {signals ? "The capital provider received" : "The capital provider will receive"}
           </span>
           {SIGNAL_LABELS.slice(0, limit).map((signal) => (
-            <span className="privacy-item" key={signal.key}>
-              <Check size={14} /> {signal.label}
+            <span className="privacy-item" key={signal.key} title={signal.signal}>
+              <Check size={14} aria-hidden="true" />
+              <span className="privacy-item__label">{signal.label}</span>
               {signals ? <em>{renderSignal(signals[signal.key])}</em> : null}
             </span>
           ))}
           {signals && !compact
             ? proof?.results.map((result) => (
                 <span className="privacy-item" key={result.key}>
-                  <Check size={14} /> {result.label}
+                  <Check size={14} aria-hidden="true" />
+                  <span className="privacy-item__label">{result.label}</span>
                   <em>{result.passed ? "pass" : "fail"}</em>
                 </span>
               ))
@@ -86,7 +109,8 @@ export function PrivacyBoundary({ compact = false, proof = null }: PrivacyBounda
           <span className="privacy-column__label">The capital provider never receives</span>
           {PRODUCT_CONFIG.hiddenData.slice(0, compact ? 3 : 4).map((item) => (
             <span className="privacy-item" key={item}>
-              <EyeOff size={14} /> {item}
+              <EyeOff size={14} aria-hidden="true" />
+              <span className="privacy-item__label">{item}</span>
             </span>
           ))}
         </div>

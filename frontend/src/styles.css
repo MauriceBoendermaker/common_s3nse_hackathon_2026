@@ -483,7 +483,12 @@ a:focus-visible {
 }
 
 .privacy-item svg {
+  flex: 0 0 auto;
   color: #87c6a6;
+}
+
+.privacy-item__label {
+  min-width: 0;
 }
 
 .privacy-boundary.is-compact {
@@ -5143,7 +5148,9 @@ select {
 }
 
 .privacy-item em {
+  flex: 0 0 auto;
   margin-left: auto;
+  padding-left: 8px;
   color: #9dc9b4;
   font-family: var(--font-mono);
   font-size: 10px;
