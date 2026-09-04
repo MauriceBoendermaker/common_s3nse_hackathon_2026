@@ -20,7 +20,15 @@
     "ens:setup": "node scripts/ens-setup.mjs",
     "payout:e2e": "node scripts/payout-e2e.mjs",
     "e2e:curl": "bash scripts/e2e-curl.sh",
-    "zk:fixtures": "node zk/make-fixtures.mjs"
+    "zk:fixtures": "node zk/make-fixtures.mjs",
+    "solana:build": "node scripts/solana.mjs build",
+    "solana:validator": "node scripts/solana.mjs validator",
+    "solana:deploy": "node scripts/solana.mjs deploy",
+    "solana:setup": "node scripts/solana-setup.mjs",
+    "solana:keys": "node scripts/solana-keys.mjs",
+    "solana:up": "node scripts/solana.mjs up",
+    "solana:down": "node scripts/solana.mjs down",
+    "zk:programvk": "node zk/emit-program-vk.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

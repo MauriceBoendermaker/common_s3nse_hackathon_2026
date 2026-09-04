@@ -448,7 +448,53 @@ Use plain `viem` + `@noble/curves@2.4.0`; working reference in
 > not the well-trodden path; (2) **policy-bound** — each draw under a ZK-verified underwriting policy lands
 > at a fresh address. Lead with those, not with "we implemented stealth addresses."
 
-### E — Solana program · ~9 h · the only contract work · **start the funding step first**
+### ✅ E — Solana program · the only contract work
+
+> **CODE DONE, DEPLOYED AND PROVEN END TO END — 2026-09-04. One manual step outstanding: devnet SOL.**
+>
+> `solana/programs/private_credit/` is a real Anchor 1.0 program, built in Docker (no Rust, no WSL)
+> and **deployed and exercised against a live validator**. `npm run payout:e2e` now walks the whole
+> protocol and finishes on chain:
+>
+> | step | result |
+> |---|---|
+> | `publish_policy` | 8,951 CU · policy hash **recomputed on-chain** with `solana-poseidon`, mismatch rejected |
+> | `publish_request` | 27,698 CU · request PDA + escrow vault whose authority is the request, not the lender |
+> | `fund_escrow` | 14,798 CU · real SPL transfer into the vault |
+> | `create_payout_account` | 20,283 CU · ATA for the ENS-derived one-time address |
+> | **`present_and_fund`** | **153,261 CU** · Groth16 verified **on chain**, nullifier PDA created, vault swept, 0.002 SOL float sent |
+> | **replay of the same receipt** | **rejected by the runtime** — *"account already in use"*, before our program is entered |
+>
+> Verified by reading the accounts back, not by trusting the program: the payout address holds the
+> full principal, the vault is empty, and the payout address has the lamports it needs to sweep.
+>
+> **Two traps found the hard way, both now documented in the source:**
+>
+> 1. **SBF stack overflow.** Declaring `[u8; 64] + [u8; 128] + [u8; 64] + [[u8; 32]; 7]` as
+>    by-value instruction arguments dies with *"Access violation in stack frame 3"* after 3,427 CU
+>    — before any of our code runs. An SBF frame is 4 KB and Anchor moves arguments through
+>    several of them. Fix: take the proof and the signals as `Vec<u8>` (heap), rebuild the fixed
+>    arrays behind a `Box`, put the pairing check in an `#[inline(never)]` helper, and
+>    `Box<Account<'info, T>>` every account.
+> 2. **The Policy PDA must be keyed by (policy hash, verifier commitment), not the hash alone.**
+>    Two lenders publishing the same four thresholds is ordinary, and they are still different
+>    verifiers. Keyed on the hash alone, the first lender's account swallows the second's and every
+>    proof the second receives is correctly-but-uselessly rejected as *"issued to a different
+>    verifier"*.
+>
+> Also corrected from the plan: `anchor-lang` resolves to **1.1.2** under anchor-cli 1.0.2, and
+> `CpiContext::new` there takes a **`Pubkey`**, not an `AccountInfo`. `solana-poseidon` is a
+> separate crate at **5.0.0**. `solana-test-validator` needs
+> `--security-opt seccomp=unconfined` in Docker (agave 3.1 asserts `io_uring_supported()`) and
+> `--bind-address $(hostname -i)` (`0.0.0.0` panics in gossip with `UnspecifiedIpAddr`).
+>
+> **⏳ OUTSTANDING — needs devnet SOL, which only you can supply.** Both the devnet and testnet
+> faucets returned 429 from this network all afternoon. Everything is deployed and green on a local
+> validator; moving to devnet is `npm run solana:deploy -- --cluster devnet` plus
+> `npm run solana:setup -- --cluster devnet`, and needs ~0.7 SOL in
+> `Dhmn7MtvYGSrWktos6sq2S2C5zPoB485bzdnhwSTMbFK` (the deployer key in `.solana/`). Fund it at
+> <https://faucet.solana.com> with a GitHub login. **A deployed program address is an explicit
+> judging deliverable, so this is the last blocking item in the whole plan.**
 
 One Anchor program, `private_credit`, built via the **`solanafoundation/anchor:v1.0.2` Docker image** — do
 not install Rust natively, do not use WSL. (I compiled `groth16-solana` in Docker in **40 s**.)
@@ -534,12 +580,12 @@ Two bounties, $4,000 combined. Every hour should be traceable to one of these ro
 
 | Bounty | Requirement | Satisfied by | Confidence |
 |---|---|---|---|
-| **Solana $2,000** | build on Solana | On-chain Groth16 verification, nullifier PDA, SPL escrow, full loan lifecycle — **every contract in the project** | High on design; **gated on devnet funding** |
+| **Solana $2,000** | build on Solana | On-chain Groth16 verification, nullifier PDA, SPL escrow, full loan lifecycle — **every contract in the project**. Built and exercised end to end | **Done on a live validator**; **still gated on devnet funding for the deployed address** |
 | | | Witness also read from Solana RPC, so the chain is the data layer too — not just a settlement venue | High |
 | **ENS $2,000** | ENS beyond name display | ENS text record is the **only** input to deriving the Solana payout address | High — but only with D shipped |
 | | actual privacy mechanism | Rotating one-time payout addresses (verified working, §1 #7) | High |
 | | protected from whom, stated | Portfolio hidden from lender; payout addresses + credit graph hidden from all chain observers | High, **if** §3.2 salting is applied |
-| | no hard-coded demos | **Workstream B** removes `DEMO_WITNESS`; delete all four "Preview…" buttons | **Currently failing** |
+| | no hard-coded demos | **Workstream B** removed `DEMO_WITNESS`; the "Preview…" buttons are gone | **Passing** |
 
 Surface the `sources` + `fetchedAt` provenance strip next to the passport. With Mobula gone, that strip is
 now your *only* on-screen evidence that the witness is real — it is the thing that answers an ENS judge who
@@ -562,7 +608,7 @@ A, B, C and D share almost no surface area — parallelise them.
 | 3–7 | ✅ **C**: circuit → local ptau → browser proving in a worker → `vk_data.rs` | **Done** — 35/35 verify-test, 1,087 ms prove, range checks proven sound |
 | 7–9 | Byte-conversion + `cargo test` green against own fixtures | 🚦 **Do not deploy before this is green** |
 | 5–9 | 🟡 **D**: ENS payout derivation end-to-end | **Code done** — 20/20 selftest, 3 rotating Solana addresses. ⏳ `setText` needs your Sepolia key |
-| 9–18 | **E**: Solana program → devnet; wallet-adapter + Sepolia→Solana UI sweep | **Hour 18: deployed?** If not, drop to the fallback below |
+| 9–18 | ✅ **E**: Solana program → built, deployed, settled, replay-guard demonstrated | **Done on localnet.** ⏳ devnet deploy is gated on faucet SOL |
 | 18–20 | **F**: hosting, Swarm (cut first if tight), Credential Passport strip | |
 | 20–23 | Delete demo shortcuts, rewrite stale copy (§7), README, video | ⚠️ Reserve 3 h — not optional polish |
 

@@ -89,9 +89,9 @@ export function ForBorrowersPage({ onNavigate }: { onNavigate: (view: SiteView) 
 
       <ContentSection eyebrow="Before you begin" title="Prototype prerequisites">
         <div className="prerequisite-list">
-          <div><WalletCards size={19} /><span><strong>EVM wallet</strong><small>Sepolia is read for real — registry, resolver and the payout text record. Wallet confirmations and network switching are still simulated; nothing here signs.</small></span></div>
-          <div><Fingerprint size={19} /><span><strong>ENS-compatible identity</strong><small>The prepared scenario uses {PRODUCT_CONFIG.borrower.ensName}; ENS records themselves remain public.</small></span></div>
-          <div><FileKey2 size={19} /><span><strong>A Solana mainnet address</strong><small>Balances are read live for whatever address you supply, over an allowlist of nine mints committed in the repository. There are no fixture portfolio values.</small></span></div>
+          <div><WalletCards size={19} /><span><strong>Two wallets</strong><small>MetaMask on Sepolia with an ENS name you own, and Phantom holding the Solana portfolio you want to prove. Solana settlement is signed by operator keys the backend holds.</small></span></div>
+          <div><Fingerprint size={19} /><span><strong>An ENS name</strong><small>Your name is the only public thing about you. Its payout-key record is written from your wallet in one transaction.</small></span></div>
+          <div><FileKey2 size={19} /><span><strong>A Solana portfolio</strong><small>Balances are read live over an allowlist of nine mints. Sign once with Phantom to prove the address is yours.</small></span></div>
           <div><Scale size={19} /><span><strong>Risk awareness</strong><small>A passing proof is not approval, a promise of funding, or a recommendation to borrow.</small></span></div>
         </div>
       </ContentSection>
@@ -152,8 +152,8 @@ export function ForBorrowersPage({ onNavigate }: { onNavigate: (view: SiteView) 
       <PageCta
         eyebrow="Prepared applicant flow"
         title="Create the private request step by step."
-        body="The demo makes public terms, proof status, offers, and lifecycle states explicit."
-        primary={{ view: "borrower", label: "Start borrower demo" }}
+        body="The marketplace makes public terms, proof status, offers, and lifecycle states explicit."
+        primary={{ view: "borrower", label: "Borrow" }}
         secondary={{ view: "faq", label: "Read the FAQ" }}
         onNavigate={onNavigate}
       />
@@ -240,7 +240,7 @@ export function ForCapitalProvidersPage({ onNavigate }: { onNavigate: (view: Sit
 
       <ContentSection eyebrow="Integration paths" title="Start with the workspace; design for verification anywhere">
         <div className="integration-table">
-          <div><span><Landmark size={19} />Hosted workspace</span><strong className="status-label status-label--success">Demo available</strong><p>Review published requests, configure policies, verify Groth16 receipts, and return offers. Every one of those steps is a call against the marketplace backend, not a local animation.</p></div>
+          <div><span><Landmark size={19} />Hosted workspace</span><strong className="status-label status-label--success">Live</strong><p>Review published requests, configure policies, verify Groth16 receipts, and return offers. Every one of those steps is a call against the marketplace backend, not a local animation.</p></div>
           <div><span><Code2 size={19} />Verifier contract</span><strong className="status-label status-label--warning">Target design</strong><p>Verify proof and public inputs from an onchain settlement or lending contract.</p></div>
           <div><span><FileKey2 size={19} />API / SDK</span><strong className="status-label status-label--neutral">Planned</strong><p>Create policy challenges and consume typed verification results in an existing underwriting stack.</p></div>
         </div>
@@ -250,7 +250,7 @@ export function ForCapitalProvidersPage({ onNavigate }: { onNavigate: (view: Sit
         eyebrow="Prepared provider flow"
         title="Apply a policy to the sample request."
         body="See sealed claims, verification outcomes, offer pricing, and applicant handoff in one workflow."
-        primary={{ view: "lender", label: "Launch provider demo" }}
+        primary={{ view: "lender", label: "Lend" }}
         secondary={{ view: "risk-disclosures", label: "Review the risks" }}
         onNavigate={onNavigate}
       />

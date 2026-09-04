@@ -23,6 +23,12 @@ import express from "express";
 import type { Request, Router } from "express";
 
 import { isLikelySolanaAddress } from "../adapters/solanaRpc.ts";
+import {
+  replayOnChain,
+  settleOnChain,
+  settlementConfig,
+  type SettleInput,
+} from "../adapters/solanaSettlement.ts";
 import { policyHash, verifierCommitment } from "../protocol/policy.ts";
 import { ProtocolError, assertHexField, assertRole, store } from "../protocol/store.ts";
 import type { Party, ProofSubmission, Role, SessionResponse } from "../protocol/types.ts";
@@ -44,7 +50,7 @@ export const metrics: { requests: number } = { requests: 0 };
 
 const STARTED_AT = Date.now();
 
-export const API_VERSION = "workstream-a+b+c";
+export const API_VERSION = "workstream-a+b+c+d+e";
 
 /**
  * Keys that must never appear on a proof submission.
@@ -266,6 +272,20 @@ apiRouter.get(
   }),
 );
 
+/* ------------------------------------------------------------- marketplace */
+
+/**
+ * The public board. No session: everything here is public marketplace data,
+ * condensed. The landing page polls it so a visitor sees live listings before
+ * choosing a side.
+ */
+apiRouter.get(
+  "/market",
+  route((_request, response) => {
+    response.json(store.marketBoard());
+  }),
+);
+
 /* --------------------------------------------------------------- requests */
 
 apiRouter.post(
@@ -304,13 +324,9 @@ apiRouter.post(
         termDays: payload.termDays as number,
         passportCommitment: payload.passportCommitment as string,
         provenance: provenance as never,
-        // The ENS identity and, only in the local-demo case, the payout key
-        // the applicant's tab derived. The store validates both and refuses
-        // the combination that would let a client claim an on-chain source
-        // for a key it shipped in the body.
-        ensName: payload.ensName as string | null | undefined,
-        payoutKey: payload.payoutKey as string | null | undefined,
-        payoutKeySource: payload.payoutKeySource as never,
+        // The ENS identity. The payout key is never in the body: the lender
+        // reads it from the name's text record or cannot pay.
+        ensName: payload.ensName as string,
       },
       party,
     );
@@ -1012,6 +1028,130 @@ apiRouter.post(
     const payload = body(request);
     const party = requireParty(requireString(payload.sessionId, "sessionId"));
     response.json(store.repayLoan(param(request, "id"), party));
+  }),
+);
+
+/* ------------------------------------------------------- solana settlement */
+
+/**
+ * What the backend knows about its own settlement leg.
+ *
+ * Public and unauthenticated on purpose: it is the endpoint a judge curls to
+ * check that the cluster, the program id and the verifying-key hash the UI
+ * claims are the ones the process is actually holding.
+ */
+apiRouter.get(
+  "/settlement/config",
+  route(async (_request, response) => {
+    response.json(await settlementConfig(verifierStatus.vkeyHash));
+  }),
+);
+
+/**
+ * Gather every row one settlement needs, and refuse the ones that would put a
+ * value on chain that nobody verified.
+ *
+ * The client sends only ids. Every number that reaches the program is read
+ * from the store here, so a lender cannot settle an amount, a policy or a
+ * payout address other than the ones already recorded and checked.
+ */
+function collectSettleInput(payload: Record<string, unknown>, party: Party): SettleInput {
+  const request = store.getRequest(requireString(payload.requestId, "requestId"));
+  if (!request) throw new ProtocolError(404, "Unknown credit request");
+
+  const offer = store.getOffer(requireString(payload.offerId, "offerId"));
+  if (!offer) throw new ProtocolError(404, "Unknown offer");
+  if (offer.requestId !== request.id) {
+    throw new ProtocolError(409, "Offer does not belong to this request", offer.id);
+  }
+  if (offer.lenderSessionId !== party.sessionId) {
+    throw new ProtocolError(403, "This offer belongs to another lender", offer.id);
+  }
+
+  const proof = store.getProof(requireString(payload.proofId, "proofId"));
+  if (!proof) throw new ProtocolError(404, "Unknown proof submission");
+  if (proof.requestId !== request.id) {
+    throw new ProtocolError(409, "Proof does not belong to this request", proof.id);
+  }
+  // The chain will re-verify the proof itself, but sending one this server
+  // already rejected would waste a devnet transaction and put a failure on the
+  // explorer that says nothing about the protocol.
+  if (proof.verification.status !== "verified") {
+    throw new ProtocolError(
+      409,
+      "That receipt is not verified",
+      `Its status is "${proof.verification.status}". Settlement is only offered for a receipt this server has already checked off-chain.`,
+    );
+  }
+  if (!proof.proof) {
+    throw new ProtocolError(409, "That receipt carries no Groth16 proof", proof.id);
+  }
+
+  const challenge = store.getChallenge(proof.challengeId);
+  if (!challenge) throw new ProtocolError(404, "Unknown policy challenge");
+
+  const payout = store.getPayout(requireString(payload.payoutId, "payoutId"));
+  if (!payout) throw new ProtocolError(404, "Unknown payout announcement");
+  if (payout.requestId !== request.id) {
+    throw new ProtocolError(409, "Payout does not belong to this request", payout.id);
+  }
+
+  const loan = store.snapshot().loans.find((row) => row.requestId === request.id) ?? null;
+
+  return { request, challenge, proof, offer, payout, loanId: loan ? loan.id : null };
+}
+
+apiRouter.post(
+  "/settlements",
+  route(async (request, response) => {
+    const payload = body(request);
+    const party = requireParty(requireString(payload.sessionId, "sessionId"));
+    assertRole(party, "lender");
+
+    const input = collectSettleInput(payload, party);
+    const settlement = await settleOnChain(input);
+    store.recordSettlement(settlement);
+    response.status(settlement.status === "settled" ? 201 : 200).json(settlement);
+  }),
+);
+
+/**
+ * Deliberately re-present a receipt that already settled.
+ *
+ * The expected outcome is a rejected transaction, and that rejection is the
+ * strongest claim in the project: the nullifier PDA already exists, so the
+ * runtime refuses to create it and the replay never reaches our code. Nothing
+ * about it is simulated.
+ */
+apiRouter.post(
+  "/settlements/:id/replay",
+  route(async (request, response) => {
+    const payload = body(request);
+    const party = requireParty(requireString(payload.sessionId, "sessionId"));
+    assertRole(party, "lender");
+
+    const settlement = store.getSettlement(param(request, "id"));
+    if (!settlement) throw new ProtocolError(404, "Unknown settlement", param(request, "id"));
+    if (settlement.status !== "settled") {
+      throw new ProtocolError(
+        409,
+        "Nothing to replay",
+        "This settlement never reached the chain, so re-presenting it would not demonstrate the replay guard.",
+      );
+    }
+
+    const input = collectSettleInput(
+      {
+        requestId: settlement.requestId,
+        offerId: settlement.offerId,
+        proofId: payload.proofId,
+        payoutId: payload.payoutId,
+      },
+      party,
+    );
+
+    const step = await replayOnChain(input);
+    response.json(store.appendSettlementStep(settlement.id, step));
   }),
 );
 

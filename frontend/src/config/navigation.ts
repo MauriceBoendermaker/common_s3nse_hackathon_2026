@@ -19,9 +19,9 @@ export type NavigationItem = {
 };
 
 export const APP_NAVIGATION = [
-  { view: "overview", label: "Overview" },
-  { view: "borrower", label: "Request credit" },
-  { view: "lender", label: "Provide capital" },
+  { view: "overview", label: "Market" },
+  { view: "borrower", label: "Borrow" },
+  { view: "lender", label: "Lend" },
 ] satisfies Array<{ view: AppView; label: string }>;
 
 export const PUBLIC_NAVIGATION: NavigationItem[] = [
@@ -70,9 +70,9 @@ const PATH_VIEWS = new Map(
 );
 
 export const VIEW_TITLES: Record<SiteView, string> = {
-  overview: "Private Credit",
-  borrower: "Request credit | Private Credit",
-  lender: "Provide capital | Private Credit",
+  overview: "Private Credit — Marketplace",
+  borrower: "Borrow | Private Credit",
+  lender: "Lend | Private Credit",
   "how-it-works": "How it works | Private Credit",
   security: "Security & trust | Private Credit",
   "for-borrowers": "For borrowers | Private Credit",
@@ -85,7 +85,7 @@ export const VIEW_TITLES: Record<SiteView, string> = {
 };
 
 export const VIEW_DESCRIPTIONS: Record<SiteView, string> = {
-  overview: "Privacy-preserving eligibility proofs for DeFi credit.",
+  overview: "A private credit marketplace: prove eligibility with a zero-knowledge passport, get paid to an ENS-derived address on Solana.",
   borrower: "Create a private credit request backed by a sealed eligibility proof.",
   lender: "Review a credit request and verify policy claims without receiving raw portfolio data.",
   "how-it-works": "Follow a private credit request from ENS identity and portfolio inputs to proof verification and an offer.",

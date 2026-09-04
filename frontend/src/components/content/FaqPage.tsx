@@ -8,11 +8,11 @@ const faqGroups = [
     questions: [
       {
         question: "Which wallets and networks are supported?",
-        answer: "Sepolia is read for real: the ENS registry, the PublicResolver, and a direct text(node, key) call for the payout record. Wallet connection, signing and network switching are still simulated — the app holds no keys and requests no signature — so production wallet compatibility has not been certified.",
+        answer: "Sepolia is read for real: the ENS registry, the PublicResolver, and a direct text(node, key) call for the payout record. On the Solana side the app does not ask you to connect a wallet at all -- settlement is signed by demo keypairs the backend holds, so a reviewer can see the protocol work without installing an extension or winning a faucet lottery. The transactions are real and open in an explorer; the custody is not the production design, and the settlement panel says so.",
       },
       {
         question: "Do I need an ENS name?",
-        answer: "The demonstrated journey uses an ENS name as its portable identity anchor. ENS records are public. A production system could support other identity methods, but this prototype has not implemented them.",
+        answer: "The flow uses an ENS name as its portable identity anchor. ENS records are public. A production system could support other identity methods, but this prototype has not implemented them.",
       },
       {
         question: "Where does portfolio data come from?",
@@ -78,7 +78,7 @@ const faqGroups = [
       },
       {
         question: "Are offers and loan settlement live?",
-        answer: "Partly. Requests, policy challenges, receipts, offers, acceptance, and the loan lifecycle are real records created by real HTTP calls against the marketplace backend, which the two parties reach as separate clients. The proof is a real Groth16 proof produced in the applicant's browser, and the one-time payout addresses are really derived from a key read out of ENS on Sepolia. Nothing waits on a timer pretending to work. What is not live: no funds move, and no Solana program is deployed. On-chain verification is proven to work in a local Rust test against groth16-solana 0.2.0 — widely used, unaudited — which is a claim about portability, not about a deployment.",
+        answer: "Yes, end to end. Requests, policy challenges, receipts, offers, acceptance and the loan lifecycle are real records created by real HTTP calls against the marketplace backend, which the two parties reach as separate clients. The proof is a real Groth16 proof produced in the applicant browser. The one-time payout addresses are really derived from a key read out of ENS on Sepolia. And settlement is a real Anchor program on a Solana test cluster that verifies the proof itself with the BN254 pairing syscalls, recomputes the policy hash from its own stored account, creates a nullifier account that makes a second presentation impossible, and moves an SPL escrow to the payout address. Nothing waits on a timer pretending to work. What is a demonstration rather than a product: the trusted setup, the minted test token, and the custodial demo keypairs.",
       },
     ],
   },
@@ -90,7 +90,7 @@ export function FaqPage({ onNavigate }: { onNavigate: (view: SiteView) => void }
       <ContentHero
         eyebrow="Frequently asked questions"
         title="Clear answers before you connect."
-        lead="The short version: this is an experimental Sepolia-facing prototype. Portfolio balances are read live from Solana mainnet and the marketplace runs against a real backend; the ZK circuit, on-chain settlement, and any audit are not there yet. It demonstrates a privacy boundary and a complete decision flow, not production lending."
+        lead="The short version: this is an experimental prototype spanning two chains. Portfolio balances are read live from Solana mainnet, ENS is read live on Sepolia, the marketplace runs against a real backend, and settlement runs against a real Anchor program on a Solana test cluster. What it is not: audited, ceremonially trustworthy, or holding anyone funds. It demonstrates a privacy boundary and a complete decision flow, not production lending."
         aside={
           <div className="faq-hero-mark">
             <HelpCircle size={30} />
@@ -122,7 +122,7 @@ export function FaqPage({ onNavigate }: { onNavigate: (view: SiteView) => void }
       <PageCta
         eyebrow="Still exploring?"
         title="See the answers in context."
-        body="The guided demo shows what the applicant publishes and what the provider actually receives."
+        body="The app shows what the borrower publishes and what the lender actually receives."
         primary={{ view: "how-it-works", label: "See how it works" }}
         secondary={{ view: "security", label: "Read security & trust" }}
         onNavigate={onNavigate}

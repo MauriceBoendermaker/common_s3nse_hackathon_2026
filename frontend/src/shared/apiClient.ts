@@ -17,7 +17,9 @@ import type {
   CreatePayoutBody,
   CreditRequest,
   Loan,
+  MarketBoard,
   Offer,
+  PassportRequestBody,
   PassportResponse,
   PayoutAnnouncement,
   PolicyChallenge,
@@ -26,6 +28,8 @@ import type {
   PublishRequestBody,
   Role,
   SessionResponse,
+  Settlement,
+  SettlementConfig,
   SubmitProofBody,
 } from "./protocol-types";
 
@@ -195,15 +199,20 @@ export function fetchState(params: {
 /* -------------------------------------------------------------- passport */
 
 /**
- * Borrower-only. Returns the real Solana-derived witness plus the provenance
- * strip. Nothing in this response is persisted server-side, and no other
- * endpoint accepts it back.
+ * Borrower-only. The wallet's signature proves control of the address; the
+ * response is the real Solana-derived witness plus the provenance strip.
+ * Nothing in it is persisted server-side, and no other endpoint accepts it
+ * back.
  */
-export function fetchPassport(address: string): Promise<PassportResponse> {
-  return request<PassportResponse>(
-    "GET",
-    `/api/passport/${encodeURIComponent(address)}`,
-  );
+export function fetchPassport(body: PassportRequestBody): Promise<PassportResponse> {
+  return request<PassportResponse>("POST", "/api/passport", body);
+}
+
+/* ---------------------------------------------------------------- market */
+
+/** The public marketplace board. No session needed. */
+export function fetchMarket(signal?: AbortSignal): Promise<MarketBoard> {
+  return request<MarketBoard>("GET", "/api/market", undefined, signal);
 }
 
 /* -------------------------------------------------------------- requests */
@@ -320,9 +329,63 @@ export function repayLoan(id: string, sessionId: string): Promise<Loan> {
   });
 }
 
+/* ------------------------------------------------ solana settlement (E) */
+
+/**
+ * What the backend knows about its own settlement leg.
+ *
+ * Read on mount by both workspaces so the UI can name the cluster, the program
+ * id and the verifying-key hash rather than asserting them. When the program
+ * is not deployed this comes back with `enabled: false` and a `problem` string
+ * that is shown verbatim — an undeployed contract renders as an undeployed
+ * contract, never as a greyed-out button with no explanation.
+ */
+export function getSettlementConfig(): Promise<SettlementConfig> {
+  return request<SettlementConfig>("GET", "/api/settlement/config");
+}
+
+/**
+ * LENDER-ONLY. Runs the whole on-chain sequence for one offer.
+ *
+ * Only ids cross the wire: every amount, threshold and address that reaches
+ * the program is read server-side from the rows it already holds, so this call
+ * cannot settle terms other than the ones that were proven.
+ *
+ * It resolves for a FAILED settlement too. A rejected `present_and_fund` is a
+ * result worth rendering — often the correct one — and the caller decides how
+ * to show it.
+ */
+export function settleOnChain(body: {
+  sessionId: string;
+  requestId: string;
+  offerId: string;
+  proofId: string;
+  payoutId: string;
+}): Promise<Settlement> {
+  return request<Settlement>("POST", "/api/settlements", body);
+}
+
+/**
+ * LENDER-ONLY. Deliberately re-presents a receipt that already settled.
+ *
+ * The expected outcome is a rejected transaction: the nullifier PDA exists, so
+ * the Solana runtime refuses to create it again. This is the one guarantee in
+ * the project that requires trusting nobody.
+ */
+export function replaySettlement(
+  settlementId: string,
+  body: { sessionId: string; proofId: string; payoutId: string },
+): Promise<Settlement> {
+  return request<Settlement>(
+    "POST",
+    `/api/settlements/${encodeURIComponent(settlementId)}/replay`,
+    body,
+  );
+}
+
 /* ------------------------------------------------------------------- dev */
 
-/** Wipes the in-memory store. Demo reset button only. */
+/** Wipes the in-memory store. Reset button only. */
 export async function resetProtocol(): Promise<void> {
   await request<unknown>("POST", "/api/dev/reset", {});
 }

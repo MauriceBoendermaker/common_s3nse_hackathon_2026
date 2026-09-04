@@ -1,0 +1,305 @@
+/* ==========================================================================
+   Marketplace + wallet UI. Same tokens and rhythm as styles.css.
+   ========================================================================== */
+
+/* --- cards that size to content (step 1 has two of them) ---------------- */
+
+.task-card--auto {
+  min-height: 0;
+}
+
+.task-card--auto + .task-card--auto,
+.task-card--auto + .task-card {
+  margin-top: 18px;
+}
+
+.task-card__heading .status-pill {
+  align-self: flex-start;
+  margin-left: auto;
+}
+
+/* --- wallet chips --------------------------------------------------------- */
+
+.wallet-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 22px;
+}
+
+.wallet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--surface-strong);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.wallet-chip small {
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--ink-faint);
+  background: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.wallet-chip--ok {
+  border-color: #bfdaca;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+}
+
+.wallet-row + .ens-panel {
+  margin-top: 18px;
+}
+
+.verdict a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: inherit;
+  font-weight: 650;
+}
+
+/* --- home: stats card ----------------------------------------------------- */
+
+.market-stats {
+  overflow: hidden;
+  border: 1px solid var(--night-line);
+  border-radius: var(--radius-lg);
+  color: #eaf4ee;
+  background: var(--night);
+  box-shadow: 0 28px 70px rgba(16, 30, 23, 0.16);
+}
+
+.market-stats__header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--night-line);
+}
+
+.market-stats__header strong,
+.market-stats__header span {
+  display: block;
+}
+
+.market-stats__header strong {
+  font-size: 14px;
+}
+
+.market-stats__header div > span {
+  margin-top: 2px;
+  color: #93a79d;
+  font-size: 11px;
+}
+
+.market-stats__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+}
+
+.market-stats__grid > div {
+  padding: 18px 20px;
+  border-right: 1px solid var(--night-line);
+  border-bottom: 1px solid var(--night-line);
+}
+
+.market-stats__grid > div:nth-child(2n) {
+  border-right: 0;
+}
+
+.market-stats__grid dt {
+  color: #82968c;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.market-stats__grid dd {
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.market-stats__how {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 20px 18px;
+  list-style: none;
+  color: #c6d6cc;
+  font-size: 12px;
+}
+
+.market-stats__how li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.market-stats__how span {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #3e6250;
+  border-radius: 6px;
+  color: #bde6d0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* --- home: the board ------------------------------------------------------ */
+
+.market-board {
+  margin-top: 54px;
+}
+
+.market-board__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.market-board__header h2 {
+  margin: 6px 0 0;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 540;
+  letter-spacing: -0.03em;
+}
+
+.market-rows {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.market-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(140px, 1fr) minmax(150px, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.market-row__who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.market-row__who strong,
+.market-row__cell strong {
+  display: block;
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-row__who small,
+.market-row__cell small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.market-row__cell strong {
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+
+.market-row__state {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.market-row__state .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.market-empty {
+  display: grid;
+  gap: 8px;
+  padding: 34px 26px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.market-empty strong {
+  color: var(--ink);
+  font-size: 17px;
+}
+
+.market-empty .hero-actions {
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.home-honesty-drawer {
+  margin-top: 28px;
+}
+
+/* --- lender market list --------------------------------------------------- */
+
+.market-list-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.market-list-header h2 {
+  margin: 4px 0 0;
+  font-size: 1.4rem;
+  font-weight: 560;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 900px) {
+  .market-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .market-row__state {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}

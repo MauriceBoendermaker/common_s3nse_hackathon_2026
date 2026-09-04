@@ -157,8 +157,9 @@ export async function buildProofInput({
     eligible:
       witness.assets >= policy.minimumAssets &&
       witness.collateralQuality >= policy.minimumCollateralQuality &&
-      witness.historyMonths !== null &&
-      witness.historyMonths >= policy.minimumHistoryMonths &&
+      (policy.minimumHistoryMonths === 0 ||
+        (witness.historyMonths !== null &&
+          witness.historyMonths >= policy.minimumHistoryMonths)) &&
       (!policy.screenRestrictedExposure || !witness.restrictedExposure),
     policyHash: challenge.policyHash,
     subjectCommitment,

@@ -378,10 +378,17 @@ export function evaluatePolicy(witness: Witness, policy: LendingPolicy): PolicyR
       // establish" must never be silently read as "old enough".
       key: "history",
       label: "Account history",
+      // A zero floor means the lender does not underwrite on age at all, so
+      // an indeterminate scan passes too — which is also what the circuit
+      // computes, since null commits as 0 and 0 >= 0.
       passed:
-        witness.historyMonths !== null &&
-        witness.historyMonths >= policy.minimumHistoryMonths,
-      requirement: `${policy.minimumHistoryMonths}+ months of on-chain history`,
+        policy.minimumHistoryMonths === 0 ||
+        (witness.historyMonths !== null &&
+          witness.historyMonths >= policy.minimumHistoryMonths),
+      requirement:
+        policy.minimumHistoryMonths === 0
+          ? "No history requirement"
+          : `${policy.minimumHistoryMonths}+ months of on-chain history`,
     },
     {
       key: "exposure",
@@ -419,7 +426,7 @@ export const POLICY_OPTIONS: {
   minimumCollateralQuality: number[];
   minimumHistoryMonths: number[];
 } = {
-  minimumAssets: [100, 1_000, 10_000, 50_000, 100_000, 250_000],
+  minimumAssets: [1, 10, 100, 1_000, 10_000, 50_000, 100_000, 250_000],
   minimumCollateralQuality: [0, 25, 50, 75, 90],
-  minimumHistoryMonths: [3, 6, 12, 18],
+  minimumHistoryMonths: [0, 3, 6, 12, 18],
 };

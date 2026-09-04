@@ -161,42 +161,24 @@ export type CreditRequest = {
   /**
    * The applicant's ENS identity, lowercased. This is the ONLY public
    * identifier of the applicant: the Solana address in `provenance.address` is
-   * where the portfolio was read, not who the applicant is, and the two must
-   * not be conflated.
+   * where the portfolio was read, not who the applicant is.
    *
-   * The lender's client needs it because it cannot pay out without resolving
-   * it: the payout key lives in that name's `privatecredit.payout-key[501]`
-   * text record. `null` only for a request published before workstream D.
+   * The lender's client cannot pay without resolving it: the X25519 payout key
+   * lives in that name's `privatecredit.payout-key[501]` text record, and the
+   * one-time payout address is derived from that key. There is no other key
+   * source. A request without a published record cannot be listed.
    */
-  ensName: string | null;
-  /**
-   * DEMO FALLBACK, and it is labelled as one everywhere it is used.
-   *
-   * The X25519 payout key (0x + 64 hex) as the applicant's own tab derived it.
-   * It is carried here ONLY for the case where the ENS text record does not
-   * exist yet — registering a `.eth` name needs funded Sepolia ETH, which a
-   * hackathon demo may not have. When `payoutKeySource` is
-   * `"ens-text-record"` the lender ignores this field entirely and uses the
-   * value it read from chain; the field exists so the settlement leg can be
-   * demonstrated end to end without pretending the record is there.
-   *
-   * In production this field does not exist. Resolve the name or do not pay.
-   */
-  payoutKey: string | null;
-  payoutKeySource: PayoutKeySource | null;
+  ensName: string;
   status: RequestStatus;
   createdAt: number;
 };
 
 /**
- * Where the X25519 payout key the lender derived against actually came from.
- *
- * `ens-text-record` is the real path: a direct `text(node, key)` call against
- * the resolver the ENS registry names. `local-demo` means the applicant's tab
- * generated the key and shipped it with the request because the record was not
- * set — honest, and strictly weaker, because nothing on chain attests it.
+ * Where the X25519 payout key the lender derived against came from. There is
+ * exactly one source: a direct `text(node, key)` call against the resolver the
+ * ENS registry names for the applicant's name.
  */
-export type PayoutKeySource = "ens-text-record" | "local-demo";
+export type PayoutKeySource = "ens-text-record";
 
 export type ChallengeStatus = "pending" | "answered" | "withdrawn";
 
@@ -359,7 +341,7 @@ export type PayoutAnnouncement = {
   viewTag: number;
   /** Base58 ed25519 public key — an ordinary Solana address. */
   payoutAddress: string;
-  /** Where the X25519 key came from. `local-demo` is the honest weak path. */
+  /** Where the X25519 key came from. Always the ENS text record. */
   keySource: PayoutKeySource;
   /** Block number of the ENS read, when one happened. Evidence, not decoration. */
   ensBlockNumber: string | null;
@@ -397,6 +379,108 @@ export type Loan = {
  * are role-projected by the server. Note the absence of any witness field —
  * that is the trust boundary, expressed in the type system.
  */
+/* --------------------------------------------- the Solana settlement leg (E) */
+
+/**
+ * One instruction sent to the `private_credit` program, and what came back.
+ *
+ * Every row here is a real transaction with a real signature on a real
+ * cluster. `skipped` exists because the sequence is idempotent: publishing a
+ * policy that already exists on chain is not a failure, it is a no-op, and
+ * saying so is more honest than re-sending it to make the list look busier.
+ */
+export type SettlementStepName =
+  | "publish_policy"
+  | "publish_request"
+  | "fund_escrow"
+  | "create_payout_account"
+  | "present_and_fund"
+  | "draw"
+  | "repay"
+  | "replay_attempt";
+
+export type SettlementStep = {
+  name: SettlementStepName;
+  label: string;
+  /** What this instruction is actually for, in one sentence. */
+  detail: string;
+  signature: string | null;
+  slot: number | null;
+  /** The account already existed on chain, so nothing was sent. */
+  skipped: boolean;
+  /** Compute units the runtime reported. The Groth16 verify dominates. */
+  computeUnits: number | null;
+  explorerUrl: string | null;
+  /** Set only when the instruction failed. Program errors land here verbatim. */
+  error: string | null;
+};
+
+/** A PDA the settlement created or touched, with an explorer link. */
+export type SettlementAccount = {
+  name: string;
+  role: string;
+  address: string;
+  explorerUrl: string;
+};
+
+export type SettlementStatus = "settled" | "failed";
+
+/**
+ * The on-chain half of one loan.
+ *
+ * Deliberately part of the SHARED state rather than a lender-private object:
+ * the whole point of settling on a public chain is that the borrower can check
+ * it without asking the lender. Nothing in here is secret — the payout address
+ * is unlinkable to the borrower's identity by construction, not by being
+ * hidden.
+ */
+export type Settlement = {
+  id: string;
+  requestId: string;
+  offerId: string;
+  /** The backend loan row this settled, when one exists. */
+  loanId: string | null;
+  cluster: string;
+  rpcUrl: string;
+  programId: string;
+  mint: string;
+  mintSymbol: string;
+  mintDecimals: number;
+  /** The one-time address derived from the borrower's ENS payout key. */
+  payoutAddress: string;
+  /** Principal in the mint's base units, as a decimal string. */
+  principalBaseUnits: string;
+  steps: SettlementStep[];
+  accounts: SettlementAccount[];
+  status: SettlementStatus;
+  error: string | null;
+  createdAt: number;
+};
+
+/**
+ * What the backend knows about its own settlement leg, surfaced so the UI can
+ * say "devnet, this program id, this mint" instead of asserting it.
+ */
+export type SettlementConfig = {
+  enabled: boolean;
+  cluster: string;
+  rpcUrl: string;
+  programId: string | null;
+  mint: string | null;
+  mintSymbol: string;
+  mintDecimals: number;
+  /** SHA-256 of the verifying key the deployed program was built against. */
+  vkHash: string | null;
+  /** Whether that hash matches the vkey this backend loaded. */
+  vkMatches: boolean;
+  lender: string | null;
+  borrower: string | null;
+  lenderSol: number | null;
+  /** Present when the program or the config account could not be read. */
+  problem: string | null;
+  explorerBase: string;
+};
+
 export type ProtocolState = {
   version: number;
   serverTime: number;
@@ -407,6 +491,8 @@ export type ProtocolState = {
   loans: Loan[];
   /** One row per derived one-time payout address. See `PayoutAnnouncement`. */
   payouts: PayoutAnnouncement[];
+  /** One row per on-chain settlement. See `Settlement`. */
+  settlements: Settlement[];
 };
 
 export type SessionResponse = {
@@ -420,6 +506,63 @@ export type ApiError = {
   detail?: string;
 };
 
+/* --------------------------------------------------------- the passport read */
+
+/**
+ * `POST /api/passport`. The applicant proves control of the Solana address the
+ * passport is read for by signing a fixed message with that address's key.
+ * The backend rebuilds the message from `address` + `issuedAt`, verifies the
+ * ed25519 signature, and only then reads the chain. Nobody can build a
+ * passport over an address they do not hold.
+ */
+export type PassportRequestBody = {
+  address: string;
+  /** ISO-8601 timestamp embedded in the signed message. Must be recent. */
+  issuedAt: string;
+  /** 64-byte ed25519 signature over the message, base58 encoded. */
+  signature: string;
+};
+
+/* ---------------------------------------------------------- the marketplace */
+
+/**
+ * One row on the public marketplace board (`GET /api/market`). Everything
+ * here is already public in `ProtocolState`; this is the same data condensed
+ * to what a visitor scanning the market needs. No session is required.
+ */
+export type MarketListing = {
+  requestId: string;
+  borrowerLabel: string;
+  ensName: string;
+  amount: number;
+  collateral: number;
+  termDays: number;
+  status: RequestStatus;
+  createdAt: number;
+  /** Open policy challenges, i.e. lenders currently underwriting. */
+  underwriting: number;
+  /** Verified-and-eligible receipts on this request. */
+  verifiedReceipts: number;
+  /** Open + accepted offers. */
+  offers: number;
+  bestApr: number | null;
+  loanStatus: LoanStatus | null;
+  settled: boolean;
+};
+
+export type MarketBoard = {
+  serverTime: number;
+  version: number;
+  listings: MarketListing[];
+  totals: {
+    open: number;
+    funded: number;
+    settled: number;
+    requestedUsd: number;
+    lenders: number;
+  };
+};
+
 /* ----------------------------------------------------------- request bodies */
 
 export type PublishRequestBody = {
@@ -429,11 +572,8 @@ export type PublishRequestBody = {
   termDays: number;
   passportCommitment: string;
   provenance: PassportProvenance;
-  /** The applicant's ENS identity. Required for the payout leg to work. */
-  ensName?: string | null;
-  /** Demo fallback only — see `CreditRequest.payoutKey`. */
-  payoutKey?: string | null;
-  payoutKeySource?: PayoutKeySource | null;
+  /** The applicant's ENS identity. Required: it is the only way to be paid. */
+  ensName: string;
 };
 
 export type CreateChallengeBody = {
@@ -486,4 +626,33 @@ export type CreatePayoutBody = {
   keySource: PayoutKeySource;
   ensBlockNumber?: string | null;
   ensRecordValue?: string | null;
+};
+
+/**
+ * LENDER-ONLY. Settles one accepted, proven, payout-announced offer on Solana.
+ *
+ * Takes ids rather than values on purpose: every number that reaches the chain
+ * is read from the store's own rows, so a client cannot settle a different
+ * amount than the offer it points at.
+ */
+export type CreateSettlementBody = {
+  sessionId: string;
+  requestId: string;
+  offerId: string;
+  proofId: string;
+  payoutId: string;
+};
+
+/**
+ * LENDER-ONLY. Re-sends the SAME `present_and_fund` instruction that already
+ * succeeded, to demonstrate that the nullifier PDA makes it impossible twice.
+ *
+ * The expected outcome is a failure, and the failure is the point: the Solana
+ * runtime refuses to create an account that already exists, so the replay
+ * never reaches a line of our program. Nothing here is simulated — it is a
+ * real transaction that is really rejected.
+ */
+export type ReplaySettlementBody = {
+  sessionId: string;
+  settlementId: string;
 };

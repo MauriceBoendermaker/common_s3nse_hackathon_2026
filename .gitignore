@@ -589,3 +589,40 @@ zk/build/fixtures/
 # Playwright MCP session artefacts (snapshots, console logs) from driving the
 # app in a real browser. Regenerated on demand, never part of the deliverable.
 .playwright-mcp/
+
+# ---------------------------------------------------------------------------
+# Workstream E — the Solana program.
+# ---------------------------------------------------------------------------
+
+# PRIVATE KEYS. The three demo keypairs the backend signs devnet transactions
+# with (deployer, lender, borrower) plus the resolved deployment. Regenerate
+# with `npm run solana:keys`; NEVER commit them. `deployment.json` is
+# reproduced by `npm run solana:setup` and is machine-specific anyway.
+.solana/
+
+# `target/` is ignored globally (line 32 region). Anchor's build output is
+# ~2 GB of intermediates and must stay out, but three things inside it are
+# deliverables and have to be negated back in, in this order — git will not
+# descend into a directory it has already excluded, so each level needs its
+# own negation before the level below can be matched.
+solana/target/*
+!solana/target/deploy/
+solana/target/deploy/*
+!solana/target/idl/
+solana/target/idl/*
+
+# The program's address keypair. Committed deliberately: lose it and the
+# deployed program id in the README becomes unreachable and unrecoverable,
+# which is the one artifact judging explicitly asks for.
+#
+# What it is NOT: it is not the upgrade authority. Once the program is
+# deployed, upgrades require `.solana/deployer.json`, which is NOT in this
+# repo. Before deployment on a given cluster, anyone holding this file could
+# deploy their own code at that address — an annoyance on a test cluster, and
+# the reason a mainnet program would use a fresh keypair generated at deploy
+# time and kept offline.
+!solana/target/deploy/private_credit-keypair.json
+
+# The generated IDL: 29 KB of JSON that documents every instruction, account
+# and error code. Worth reading, and worth diffing when the program changes.
+!solana/target/idl/private_credit.json

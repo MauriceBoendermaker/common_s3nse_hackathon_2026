@@ -16,6 +16,11 @@ import {
   X,
 } from "lucide-react";
 import type { SiteView } from "../../config/navigation";
+import {
+  deploymentSentence,
+  shortAddress,
+  useSettlementConfig,
+} from "../../shared/useSettlementConfig";
 import { PrivacyBoundary } from "../PrivacyBoundary";
 import { ContentHero, ContentSection, PageCta } from "./ContentPageShell";
 
@@ -115,6 +120,15 @@ const limitations = [
 ];
 
 export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => void }) {
+  /*
+   * The scorecard below used to be seven hard-coded rows. Three of them were
+   * claims about a chain, and a claim about a chain written into JSX is a
+   * claim that goes stale the day somebody deploys. These three now come from
+   * `GET /api/settlement/config` — the same endpoint a judge can curl.
+   */
+  const { config, loading } = useSettlementConfig();
+  const deployed = Boolean(config?.programId);
+
   return (
     <div className="content-page">
       <ContentHero
@@ -125,13 +139,29 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
           <div className="trust-scorecard">
             <span className="section-label">Prototype posture</span>
             <dl>
-              <div><dt>Production contracts</dt><dd><X size={14} /> None</dd></div>
+              <div><dt>Mainnet contracts</dt><dd><X size={14} /> None, by design</dd></div>
               <div><dt>Independent audit</dt><dd><X size={14} /> Not audited</dd></div>
-              <div><dt>Real funds</dt><dd><X size={14} /> Disabled</dd></div>
+              <div><dt>Real funds</dt><dd><X size={14} /> Test cluster only</dd></div>
               <div><dt>Portfolio data</dt><dd className="is-positive"><Check size={14} /> Live Solana mainnet</dd></div>
               <div><dt>ENS resolution</dt><dd className="is-positive"><Check size={14} /> Live Sepolia reads</dd></div>
-              <div><dt>Solana program</dt><dd><X size={14} /> Not deployed</dd></div>
-              <div><dt>Disclosure model</dt><dd className="is-positive"><Check size={14} /> Documented</dd></div>
+              <div>
+                <dt>Solana program</dt>
+                <dd className={deployed ? "is-positive" : undefined} title={config?.programId ?? undefined}>
+                  {deployed ? <Check size={14} /> : <X size={14} />}{" "}
+                  {loading
+                    ? "checking…"
+                    : deployed
+                      ? `${shortAddress(config?.programId)} · ${config?.cluster}`
+                      : "Not deployed"}
+                </dd>
+              </div>
+              <div>
+                <dt>On-chain verification</dt>
+                <dd className={config?.enabled ? "is-positive" : undefined}>
+                  {config?.enabled ? <Check size={14} /> : <X size={14} />}{" "}
+                  {config?.enabled ? "Groth16 in the program" : "Backend only"}
+                </dd>
+              </div>
             </dl>
           </div>
         }
@@ -249,7 +279,7 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
           <div>
             <h3>Experimental and unaudited</h3>
             <p>Balances are read live from Solana mainnet. ENS names are resolved live on Sepolia \u2014 registry owner, resolver, addr and a direct text() read of the payout record \u2014 and the one-time payout addresses are derived in the browser from the key that read returns. The proof is a real BN254 Groth16 proof, generated in the applicant\u2019s browser and verified by the backend with snarkjs against the same verifying key the browser proved with. On-chain verification is proven to work in a local Rust test against groth16-solana 0.2.0 (widely used, unaudited) but <strong>nothing is deployed on any Solana cluster</strong>: settlement targets devnet and is not wired, so no program exists to call, no independent audit has been done, and no real funds move. The trusted setup is a development ceremony, not a real one.</p>
-            <p>What is already enforced rather than illustrated: the passport commitment is published before the capital provider issues its policy challenge, the backend recomputes the policy hash instead of trusting the client, receipts carry an expiry the backend checks, and a nullifier makes a second presentation of the same proof fail.</p>
+            <p>What is enforced rather than illustrated: the passport commitment is published before the capital provider issues its policy challenge; the backend recomputes the policy hash instead of trusting the client, and so does the program, from its own stored account; receipts carry an expiry both the backend and the cluster clock check; and the nullifier is a program-derived account that gets created, so a second presentation of the same receipt is refused by the Solana runtime before a line of our code runs. That last one is the only guarantee in this project that requires trusting nobody at all.</p>
           </div>
           <span className="status-label status-label--warning">Prototype only</span>
         </div>
@@ -259,7 +289,7 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
         eyebrow="Verify the boundary"
         title="See exactly what each side receives."
         body="Run the prepared workflow, then review the broader financial and technical risks before treating any result as a credit decision."
-        primary={{ view: "borrower", label: "Open the demo" }}
+        primary={{ view: "borrower", label: "Open the market" }}
         secondary={{ view: "risk-disclosures", label: "Read risk disclosures" }}
         onNavigate={onNavigate}
       />

@@ -18,16 +18,26 @@ that decides whether the rest is worth reading.
 | The portfolio | Live **Solana mainnet** RPC + Jupiter pricing. Keyless — no vendor account. There is no `DEMO_WITNESS` constant anywhere in this repo, by construction. |
 | The proof | A real **Groth16 BN254** proof of `zk/circuits/credit_policy.circom` (1 390 non-linear + 1 590 linear constraints), produced in the applicant's browser by a Web Worker in ~550 ms, verified server-side by `snarkjs.groth16.verify` in ~11 ms. |
 | The verification | Eight bindings the server **re-derives** from state it already held. The client is trusted for nothing: `policyHash` and `verifierCommitment` are recomputed from the stored policy and the calling lender's own session, never read from a request body. |
-| The replay guard | `nullifier = Poseidon(salt, policyHash, verifierCommitment)`, spendable exactly once. In-memory here; the same value and semantics a nullifier PDA would carry on chain. |
+| The settlement | A deployed **Anchor program** (`solana/programs/private_credit/`) that verifies the same Groth16 proof itself over the BN254 syscalls (**156k compute units**), recomputes the policy hash on chain from its own stored account, creates a nullifier PDA, and moves an SPL escrow to the ENS-derived payout address plus 0.002 SOL so the recipient can afford to sweep. |
+| The replay guard | `nullifier = Poseidon(salt, policyHash, verifierCommitment)`, spendable exactly once — enforced by the **Solana runtime**, which refuses to create a PDA that already exists. Re-presenting a settled receipt fails with *"account already in use"* before a line of our program runs. |
 | The payout | ERC-5564-*style* stealth derivation over X25519, producing a fresh **Solana ed25519** address per draw, recoverable only by the holder of the viewing key. Read live from a Sepolia ENS text record. |
 | The ENS reads | Live Sepolia: `owner`, `resolver`, `addr`, `text(node, key)` against the deployed ENS registry and PublicResolver. `npm run ens:probe` obtains a positive control by finding somebody else's custom dotted text record on chain and reading it back. |
 
 ## What is **not** real
 
-- **Nothing is deployed on Solana.** On-chain Groth16 verification is *proven to work* in a
-  local Rust test (`prototype/solana-verify/`: `proof.A NEGATED : VERIFIED` /
-  `proof.A as-is : rejected` / `TAMPERED inputs: correctly rejected`). That is a claim about the
-  credential being **chain-portable**, not a claim about a deployment. There is no program id.
+- **The program is deployed on a local validator, not yet on devnet.** Everything works end to
+  end — `npm run payout:e2e` walks the whole protocol and finishes with a real
+  `present_and_fund` transaction, verified by reading the accounts back — but the devnet and
+  testnet faucets returned HTTP 429 for the whole build window, so there is no public program
+  address yet. Moving is two commands and needs ~0.7 SOL; see
+  [Deploy to devnet](#deploy-the-program-to-devnet).
+- **The tokens are a mint this project created.** `PCUSD`, 6 decimals, minted by the setup
+  script. Not USDC, not anybody's money.
+- **The Solana transactions are signed by operator keypairs the backend holds** (in
+  `.solana/`, gitignored). In production the lender signs in their own wallet and the borrower in
+  theirs; nothing about the program changes, only who holds the key. It is done this way so a
+  reviewer does not need a wallet extension and a faucet before they can see the protocol work,
+  and every screen that shows a signature says so.
 - **The trusted setup is a development ceremony.** See below.
 - **No ENS name is registered.** Registering `privatecredit.eth` needs funded Sepolia ETH.
   `scripts/ens-setup.mjs` is staged and its exact register+setText payload has been verified
@@ -46,8 +56,53 @@ npm run build         # type-check + build the SPA and the backend
 npm run dev           # frontend on :5173 (proxying /api), backend on :3001
 ```
 
-Open two tabs — one applicant, one lender. Sessions are per-tab (`sessionStorage`), so the two
+Open two tabs — one borrower, one lender. Sessions are per-tab (`sessionStorage`), so the two
 tabs really are two parties.
+
+**The borrower side needs two wallets, and there is no demo shortcut around either:**
+
+- **MetaMask on Sepolia**, holding an ENS name you own. Connecting signs one message (the
+  X25519 viewing key is derived from that signature, never stored) and, if the name has no
+  `privatecredit.payout-key[501]` record yet, one button sends the real `setText` from your
+  wallet. No record, no listing — the lender pays only to what ENS publishes. The app reads
+  **ENSv2** (the Sepolia beta at <https://app.ens.dev>, hierarchical registry, per-account
+  Permissioned Resolver) first and falls back to the legacy v1 registry, so a name registered in
+  either works. ENS Labs has retired the legacy manager UI on Sepolia, so register at app.ens.dev.
+- **Phantom**, holding the Solana portfolio you want to prove. The passport read is
+  `POST /api/passport` and requires a signature from that address; nobody can build a passport
+  over an address they do not hold. The unsigned `GET /api/passport/:address` used by the curl
+  scripts only exists when the backend is started with `ALLOW_UNSIGNED_PASSPORT=1`.
+
+The landing page is the marketplace: `GET /api/market` is a public board of every listing,
+its offers, best APR and loan state.
+
+### With settlement (the whole thing)
+
+Settlement needs a Solana cluster and a deployed program. One command does all of it against a
+local validator in Docker — **no Rust, no WSL, no faucet**:
+
+```bash
+npm run solana:build   # ~4 min cold: anchor build inside solanafoundation/anchor:v1.0.2
+npm run solana:up      # start a validator, deploy, create the mint, initialize
+npm run dev
+```
+
+`npm run solana:up` writes `.solana/deployment.json`, which is the only thing the backend reads
+to decide where it settles. `npm run solana:down` stops the validator. Without any of this the
+app still runs; the settlement panel says the contract is unreachable and why, rather than
+hiding the button.
+
+### Deploy the program to devnet
+
+```bash
+npm run solana:keys                            # prints the three demo addresses
+# fund the DEPLOYER address with ~0.7 SOL from https://faucet.solana.com (GitHub login)
+npm run solana:deploy -- --cluster devnet
+npm run solana:setup  -- --cluster devnet
+```
+
+The second command rewrites `.solana/deployment.json`; restart the backend and every explorer
+link in the UI points at devnet.
 
 > **Order matters.** `zk/build.mjs` writes the browser's proving key into `frontend/public/zk/`,
 > and `vite build` copies that into `frontend/dist/`. Running `zk:build` *after* `build` leaves
@@ -149,13 +204,19 @@ needs either a lower-activity wallet or a policy calibrated to the real portfoli
 
 ### 6. Everything else
 
-- `payoutKeySource: "local-demo"` exists only because no ENS name is registered yet. The lender
-  **always** reads ENS first and only falls back; the backend refuses `payoutKey` together with
-  `payoutKeySource: "ens-text-record"` so a client cannot claim an on-chain source for a key it
-  shipped in a request body. In production the field does not exist: the lender resolves the
-  name or cannot pay.
-- Balances are read from **mainnet**; settlement (unbuilt) targets **devnet**. Both cluster names
-  ride on every `provenance` object so the UI has to say it out loud.
+- There is no fallback payout key. `payoutKeySource` is always `"ens-text-record"`: the lender
+  reads the key from the ENS record or cannot pay, and the borrower publishes that record from
+  their own wallet inside the app.
+- Balances are read from **mainnet**; settlement runs on a **test cluster**. Both cluster names
+  ride on every `provenance` object so the UI has to say it out loud, and the settlement panel
+  reads the live cluster from `GET /api/settlement/config` rather than from a constant.
+- The Solana program is **not audited**, and neither is the `groth16-solana` 0.2.0 crate it uses
+  to verify (only 0.0.1 was covered by the Light Protocol v3 audit). The program has no
+  emergency stop, no upgrade timelock and no test suite beyond the end-to-end script.
+- **`repay` transfers to the lender's token account but does not close the loan's escrow**, and
+  there is no liquidation path for a loan that is never repaid. A first-loss deposit is recorded
+  on the request and is not actually held by the program. Those are product gaps, not oversights
+  in the privacy design, and they are why this is a demonstration of a mechanism.
 - `viem` is ~401 kB in a chunk shared by both lazy views. It is not in the entry bundle, but
   loading either workspace pulls it.
 
@@ -165,14 +226,18 @@ needs either a lower-activity wallet or a policy calibrated to the real portfoli
 
 ```
 backend/src/protocol/    types.ts (the wire contract) · hashing · policy · store · verifier
-backend/src/adapters/    keyless Solana RPC + Jupiter pricing — the only witness source
+backend/src/adapters/    keyless Solana RPC + Jupiter pricing (the only witness source) ·
+                         proofBytes.ts (snarkjs -> groth16-solana) · solanaSettlement.ts
 backend/src/routes/      api.ts (lender-safe by construction) · passport.ts (the only door)
 frontend/src/borrower/   witness, prover worker, ENS identity — never imported by the lender
 frontend/src/lender/     policy, verification checklist, payout derivation
 frontend/src/shared/     apiClient, session, policy mirror, ENS payout math, generated layout
+solana/                  the Anchor program: on-chain Groth16, policy recompute, nullifier
+                         PDA, SPL escrow, ENS-derived payout
 zk/                      circuit, dev ceremony, artifact export, 35-check negative test suite
 prototype/               recovered prior art: the working Rust on-chain verification test
-scripts/                 sync:types, the curl end-to-end run, the ENS probe/selftest/setup
+scripts/                 sync:types, the end-to-end runs, the ENS probe/selftest/setup, and
+                         solana.mjs (Docker anchor build / validator / deploy)
 ```
 
 `backend/src/protocol/types.ts` is the single source of truth for the wire contract;

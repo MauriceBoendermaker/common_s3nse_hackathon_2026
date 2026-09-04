@@ -99,7 +99,7 @@ export function HowItWorksPage({ onNavigate }: { onNavigate: (view: SiteView) =>
         }
       >
         <RouteLink view="borrower" onNavigate={onNavigate} className="button button--primary">
-          <span>Start borrower demo</span><span className="button__icon"><ArrowRight size={16} /></span>
+          <span>Borrow</span><span className="button__icon"><ArrowRight size={16} /></span>
         </RouteLink>
         <RouteLink view="security" onNavigate={onNavigate} className="text-link">
           Read the security model <ArrowRight size={15} />
@@ -205,10 +205,10 @@ export function HowItWorksPage({ onNavigate }: { onNavigate: (view: SiteView) =>
       </ContentSection>
 
       <aside className="prototype-banner">
-        <span className="prototype-banner__mark">DEMO</span>
+        <span className="prototype-banner__mark">LIVE</span>
         <div>
-          <strong>Current prototype boundary</strong>
-          <p>Balances are read live from Solana mainnet, ENS names are resolved live on Sepolia, and every request, challenge, receipt, offer, and lifecycle change is a real call against the marketplace backend. The proof is a real BN254 Groth16 proof produced in the browser and verified server-side, and each payout address is really derived from the X25519 key in the applicant's ENS payout record. Not wired yet: on-chain verification and settlement, both of which target Solana devnet, and no program is deployed. The trusted setup is a development ceremony, wallet confirmations are simulated, and no funds move.</p>
+          <strong>What is live</strong>
+          <p>Balances are read from Solana mainnet, ENS is read and written on Sepolia from your own wallet, and every request, policy, proof, offer and loan is a real row in the marketplace backend. The proof is a BN254 Groth16 proof produced in the browser, verified by the server and again by the <code>private_credit</code> program on chain, which spends a nullifier and releases the escrow to a one-time ENS-derived address. Still to do: a multi-party trusted setup, real USDC, and per-party wallet signing for the Solana leg.</p>
         </div>
       </aside>
 

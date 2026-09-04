@@ -22,6 +22,15 @@
  * contracts, and `probeContracts()` below checks each one actually has
  * bytecode before anything relies on it.
  *
+ * -- ENSv2 first, ENSv1 second ------------------------------------------
+ *
+ * ENS Labs runs the ENSv2 beta on Sepolia (app.ens.dev), with a hierarchical
+ * registry that is separate from the legacy flat registry, and has retired the
+ * legacy manager UI there. Every exported read below therefore asks the ENSv2
+ * UniversalResolverV2 first (`findResolver` walks the v2 registry tree) and
+ * falls back to the v1 registry only when v2 has no resolver for the name.
+ * Each result says which registry answered, so the UI never has to guess.
+ *
  * -- No throwing into the render path -----------------------------------
  *
  * Every exported function returns a discriminated result. An RPC that times
@@ -34,8 +43,13 @@
 
 import {
   createPublicClient,
+  decodeFunctionResult,
+  encodeFunctionData,
   http,
+  keccak256,
   namehash,
+  stringToBytes,
+  toHex,
   type Address,
   type Hex,
   type PublicClient,
@@ -72,6 +86,55 @@ export const ENS_CHAIN = {
 } as const;
 
 const ZERO_ADDRESS: Address = "0x0000000000000000000000000000000000000000";
+
+/* ------------------------------------------------------------- ENSv2 */
+
+export type EnsRegistry = "ensv2" | "ensv1";
+
+/** ENSv2 beta on Sepolia — docs.ens.domains/learn/deployments#sepolia-ensv2-beta. */
+export const ENSV2_UNIVERSAL_RESOLVER: Address = "0x4a1817d13e9cf196f471725176355c1234b63c70";
+export const ENSV2_ETH_REGISTRY: Address = "0xbdc85dd5b15d7ecb354cd7cb6f2c50b4f2c4f0e2";
+export const ENSV2_APP = "https://app.ens.dev";
+
+const universalResolverAbi = [
+  {
+    name: "findResolver",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "name", type: "bytes" }],
+    outputs: [{ type: "address" }, { type: "bytes32" }, { type: "uint256" }],
+  },
+  {
+    name: "resolve",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "name", type: "bytes" },
+      { name: "data", type: "bytes" },
+    ],
+    outputs: [{ type: "bytes" }, { type: "address" }],
+  },
+  {
+    name: "reverse",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "lookupAddress", type: "bytes" },
+      { name: "coinType", type: "uint256" },
+    ],
+    outputs: [{ type: "string" }, { type: "address" }, { type: "address" }],
+  },
+] as const;
+
+const ethRegistryAbi = [
+  {
+    name: "ownerOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "uint256" }],
+    outputs: [{ type: "address" }],
+  },
+] as const;
 
 /* ------------------------------------------------------------- ABIs */
 
@@ -154,6 +217,8 @@ export type EnsResult<T> = ({ ok: true } & T) | { ok: false; error: string };
 export interface ResolvedName {
   name: string;
   node: Hex;
+  /** Which registry answered. v2 is tried first. */
+  registry: EnsRegistry;
   /** Registry `owner(node)`. `null` when the name is unregistered. */
   owner: Address | null;
   /** Registry `resolver(node)`. `null` when no resolver is set. */
@@ -166,6 +231,7 @@ export interface ResolvedName {
 export interface PayoutRecordRead {
   name: string;
   node: Hex;
+  registry: EnsRegistry;
   resolver: Address;
   key: string;
   /** Exactly what `text()` returned, including the empty string. */
@@ -178,6 +244,7 @@ export interface PayoutRecordRead {
 
 export interface ReverseNameRead {
   address: Address;
+  registry: EnsRegistry;
   /**
    * `null` means the reverse record is genuinely NOT SET. Render that as "not
    * set". It is not an error and it is not a pass.
@@ -271,6 +338,8 @@ export async function probeContracts(): Promise<EnsResult<{ contracts: ContractP
     { label: "PublicResolver", address: ENS_PUBLIC_RESOLVER },
     { label: "ETHRegistrarController", address: ETH_REGISTRAR_CONTROLLER },
     { label: "ERC-6538 registry", address: ERC6538_REGISTRY },
+    { label: "ENSv2 UniversalResolverV2", address: ENSV2_UNIVERSAL_RESOLVER },
+    { label: "ENSv2 ETHRegistry", address: ENSV2_ETH_REGISTRY },
   ];
   try {
     const client = sepoliaClient();
@@ -290,7 +359,176 @@ export async function probeContracts(): Promise<EnsResult<{ contracts: ContractP
   }
 }
 
+/* ------------------------------------------------------------- v2 helpers */
+
+/** RFC 1035 wire format: length-prefixed labels, zero terminated. */
+function dnsEncode(name: string): Hex {
+  const out: number[] = [];
+  for (const label of name.split(".")) {
+    const bytes = new TextEncoder().encode(label);
+    out.push(bytes.length, ...bytes);
+  }
+  out.push(0);
+  return toHex(new Uint8Array(out));
+}
+
+/**
+ * The ENSv2 resolver for a name, or null when the v2 registry tree has none.
+ * `findResolver` walks RootRegistry -> ETHRegistry -> ... via `getSubregistry`
+ * and returns the deepest resolver it found. A revert means "no v2 name".
+ */
+async function findResolverV2(name: string): Promise<Address | null> {
+  try {
+    const [resolver] = await sepoliaClient().readContract({
+      address: ENSV2_UNIVERSAL_RESOLVER,
+      abi: universalResolverAbi,
+      functionName: "findResolver",
+      args: [dnsEncode(name)],
+    });
+    return resolver === ZERO_ADDRESS ? null : resolver;
+  } catch {
+    return null;
+  }
+}
+
+/** One resolver call routed through UniversalResolverV2.resolve. */
+async function v2Call(name: string, data: Hex): Promise<Hex> {
+  const [result] = await sepoliaClient().readContract({
+    address: ENSV2_UNIVERSAL_RESOLVER,
+    abi: universalResolverAbi,
+    functionName: "resolve",
+    args: [dnsEncode(name), data],
+  });
+  return result;
+}
+
+async function v2Address(name: string, node: Hex): Promise<Address | null> {
+  try {
+    const raw = await v2Call(name, encodeFunctionData({ abi: resolverAbi, functionName: "addr", args: [node] }));
+    if (raw === "0x") return null;
+    const value = decodeFunctionResult({ abi: resolverAbi, functionName: "addr", data: raw });
+    return value === ZERO_ADDRESS ? null : value;
+  } catch {
+    return null;
+  }
+}
+
+async function v2Text(name: string, node: Hex, key: string): Promise<string> {
+  const raw = await v2Call(
+    name,
+    encodeFunctionData({ abi: resolverAbi, functionName: "text", args: [node, key] }),
+  );
+  if (raw === "0x") return "";
+  return decodeFunctionResult({ abi: resolverAbi, functionName: "text", data: raw });
+}
+
+/**
+ * ERC-1155 owner of a second-level .eth name in the v2 ETHRegistry. The
+ * canonical token id is the labelhash with its low 32 version bits zeroed.
+ * Deeper names live in subregistries this helper does not walk; they report
+ * `null` and the caller treats "has a v2 resolver" as registered.
+ */
+async function v2Owner(name: string): Promise<Address | null> {
+  const labels = name.split(".");
+  if (labels.length !== 2 || labels[1] !== "eth") return null;
+  try {
+    const canonicalId = BigInt(keccak256(stringToBytes(labels[0]!))) & ~0xffffffffn;
+    const owner = await sepoliaClient().readContract({
+      address: ENSV2_ETH_REGISTRY,
+      abi: ethRegistryAbi,
+      functionName: "ownerOf",
+      args: [canonicalId],
+    });
+    return owner === ZERO_ADDRESS ? null : owner;
+  } catch {
+    return null;
+  }
+}
+
 /* ------------------------------------------------------------- reads */
+
+/**
+ * Forward resolution, v2 first. The v2 resolver is the owner's own
+ * Permissioned Resolver proxy, which is exactly the contract `setText` has
+ * to be sent to — so the address returned here is the write target too.
+ */
+export async function resolveName(name: string): Promise<EnsResult<ResolvedName>> {
+  const parsed = toNode(name);
+  if ("error" in parsed) return { ok: false, error: parsed.error };
+
+  const resolver = await findResolverV2(parsed.name);
+  if (resolver) {
+    try {
+      const blockNumber = await sepoliaClient().getBlockNumber();
+      return {
+        ok: true,
+        name: parsed.name,
+        node: parsed.node,
+        registry: "ensv2",
+        owner: await v2Owner(parsed.name),
+        resolver,
+        address: await v2Address(parsed.name, parsed.node),
+        blockNumber,
+      };
+    } catch (error) {
+      return { ok: false, error: describe(error) };
+    }
+  }
+  return resolveNameV1(name);
+}
+
+/** Text record, v2 first. */
+export async function readTextRecord(
+  name: string,
+  key: string,
+): Promise<EnsResult<{ name: string; node: Hex; registry: EnsRegistry; resolver: Address; key: string; value: string; blockNumber: bigint }>> {
+  const parsed = toNode(name);
+  if ("error" in parsed) return { ok: false, error: parsed.error };
+
+  const resolver = await findResolverV2(parsed.name);
+  if (resolver) {
+    try {
+      const blockNumber = await sepoliaClient().getBlockNumber();
+      const value = await v2Text(parsed.name, parsed.node, key);
+      return { ok: true, name: parsed.name, node: parsed.node, registry: "ensv2", resolver, key, value, blockNumber };
+    } catch (error) {
+      return { ok: false, error: describe(error) };
+    }
+  }
+  return readTextRecordV1(name, key);
+}
+
+/**
+ * Primary name, v2 first. UniversalResolverV2.reverse verifies the forward
+ * resolution on chain and reverts on a mismatch, so a name it returns has
+ * already passed the round trip.
+ */
+export async function reverseName(address: Address): Promise<EnsResult<ReverseNameRead>> {
+  try {
+    const client = sepoliaClient();
+    const [name] = await client.readContract({
+      address: ENSV2_UNIVERSAL_RESOLVER,
+      abi: universalResolverAbi,
+      functionName: "reverse",
+      args: [address, 60n],
+    });
+    if (name) {
+      return {
+        ok: true,
+        address,
+        registry: "ensv2",
+        name: name.toLowerCase(),
+        forwardMatches: true,
+        blockNumber: await client.getBlockNumber(),
+      };
+    }
+  } catch {
+    // No v2 primary name (or it failed the on-chain round trip): try v1.
+  }
+  return reverseNameV1(address);
+}
+
+/* ------------------------------------------------------------- v1 reads */
 
 /**
  * Registry `owner()` + `resolver()`, and the resolver's `addr()`.
@@ -299,7 +537,7 @@ export async function probeContracts(): Promise<EnsResult<{ contracts: ContractP
  * resolver, because the registry is the authority on who controls a name. The
  * UI shows all three so a judge can see which contract each claim came from.
  */
-export async function resolveName(name: string): Promise<EnsResult<ResolvedName>> {
+async function resolveNameV1(name: string): Promise<EnsResult<ResolvedName>> {
   const parsed = toNode(name);
   if ("error" in parsed) return { ok: false, error: parsed.error };
 
@@ -339,6 +577,7 @@ export async function resolveName(name: string): Promise<EnsResult<ResolvedName>
       ok: true,
       name: parsed.name,
       node: parsed.node,
+      registry: "ensv1",
       owner: owner === ZERO_ADDRESS ? null : owner,
       resolver: resolver === ZERO_ADDRESS ? null : resolver,
       address,
@@ -358,10 +597,10 @@ export async function resolveName(name: string): Promise<EnsResult<ResolvedName>
  * evidence on screen we want the plainest possible call against the resolver
  * the registry itself names.
  */
-export async function readTextRecord(
+async function readTextRecordV1(
   name: string,
   key: string,
-): Promise<EnsResult<{ name: string; node: Hex; resolver: Address; key: string; value: string; blockNumber: bigint }>> {
+): Promise<EnsResult<{ name: string; node: Hex; registry: EnsRegistry; resolver: Address; key: string; value: string; blockNumber: bigint }>> {
   const parsed = toNode(name);
   if ("error" in parsed) return { ok: false, error: parsed.error };
 
@@ -386,7 +625,7 @@ export async function readTextRecord(
       functionName: "text",
       args: [parsed.node, key],
     })) as string;
-    return { ok: true, name: parsed.name, node: parsed.node, resolver, key, value, blockNumber };
+    return { ok: true, name: parsed.name, node: parsed.node, registry: "ensv1", resolver, key, value, blockNumber };
   } catch (error) {
     return { ok: false, error: describe(error) };
   }
@@ -414,6 +653,7 @@ export async function readPayoutRecord(name: string): Promise<EnsResult<PayoutRe
     ok: true,
     name: read.name,
     node: read.node,
+    registry: read.registry,
     resolver: read.resolver,
     key: read.key,
     value: read.value,
@@ -431,7 +671,7 @@ export async function readPayoutRecord(name: string): Promise<EnsResult<PayoutRe
  * address) is a claim worth rendering. `forwardMatches` is that round trip, and
  * it is false unless it actually held.
  */
-export async function reverseName(address: Address): Promise<EnsResult<ReverseNameRead>> {
+async function reverseNameV1(address: Address): Promise<EnsResult<ReverseNameRead>> {
   try {
     const client = sepoliaClient();
     const blockNumber = await client.getBlockNumber();
@@ -443,7 +683,7 @@ export async function reverseName(address: Address): Promise<EnsResult<ReverseNa
       args: [reverseNode],
     })) as Address;
     if (resolver === ZERO_ADDRESS) {
-      return { ok: true, address, name: null, forwardMatches: false, blockNumber };
+      return { ok: true, address, registry: "ensv1", name: null, forwardMatches: false, blockNumber };
     }
     const name = (await client.readContract({
       address: resolver,
@@ -452,12 +692,12 @@ export async function reverseName(address: Address): Promise<EnsResult<ReverseNa
       args: [reverseNode],
     })) as string;
     if (!name) {
-      return { ok: true, address, name: null, forwardMatches: false, blockNumber };
+      return { ok: true, address, registry: "ensv1", name: null, forwardMatches: false, blockNumber };
     }
     const forward = await resolveName(name);
     const forwardMatches =
       forward.ok && forward.address !== null && forward.address.toLowerCase() === address.toLowerCase();
-    return { ok: true, address, name, forwardMatches, blockNumber };
+    return { ok: true, address, registry: "ensv1", name, forwardMatches, blockNumber };
   } catch (error) {
     return { ok: false, error: describe(error) };
   }

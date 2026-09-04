@@ -44,9 +44,11 @@ export function PolicyBuilder({
    * judge sees first; it should change only when somebody decides to change it.
    */
   const [policy, setPolicy] = useState<LendingPolicy>({
-    minimumAssets: 10_000,
-    minimumCollateralQuality: 50,
-    minimumHistoryMonths: 3,
+    // The loosest tiers, so a real small wallet can reach an eligible proof
+    // out of the box. Raise any of them to watch a genuine rejection.
+    minimumAssets: 1,
+    minimumCollateralQuality: 0,
+    minimumHistoryMonths: 0,
     screenRestrictedExposure: true,
   });
   const [busy, setBusy] = useState(false);
@@ -91,11 +93,11 @@ export function PolicyBuilder({
           <Send size={22} />
         </span>
         <div>
-          <span className="section-label">Step 2 of 5</span>
-          <h2>Define the underwriting policy</h2>
+          <span className="section-label">Step 2 · Policy</span>
+          <h2>Set your underwriting policy</h2>
           <p>
-            Four thresholds. The receipt the applicant returns will be bound to the Poseidon hash of
-            exactly these numbers.
+            Four thresholds. The borrower proves all four without revealing a single value. Start
+            loose, then raise a tier to see a real rejection.
           </p>
         </div>
       </div>
@@ -105,7 +107,7 @@ export function PolicyBuilder({
           <span className="section-label">Reviewed request</span>
           <strong>{formatUsd(request.amount)} USDC</strong>
           <small>
-            {request.termDays} days · {request.borrowerLabel} · {formatUsd(request.collateral)} first-loss
+            {request.termDays} days · {request.ensName} · {formatUsd(request.collateral)} first-loss
           </small>
         </div>
         <StatusPill tone="neutral">commitment {shortHash(request.passportCommitment)}</StatusPill>
@@ -150,7 +152,7 @@ export function PolicyBuilder({
           >
             {POLICY_OPTIONS.minimumHistoryMonths.map((value) => (
               <option value={value} key={value}>
-                {value} months
+                {value === 0 ? "No history requirement" : `${value} months`}
               </option>
             ))}
           </select>

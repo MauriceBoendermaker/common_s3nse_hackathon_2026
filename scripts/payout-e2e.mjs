@@ -143,6 +143,7 @@ const blindingFactor = randomFieldElement();
 // provenance.address to be a genuine Solana address.
 const passport = await call(
   "GET",
+  // Unsigned read: needs the backend started with ALLOW_UNSIGNED_PASSPORT=1.
   "/api/passport/DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK",
 );
 
@@ -168,28 +169,8 @@ const request = await call("POST", "/api/requests", {
   passportCommitment: fieldToHex(built0.derived.pc),
   provenance: passport.provenance,
   ensName: ENS_NAME,
-  payoutKey: bytesToHex0x(viewing.publicKey),
-  payoutKeySource: "local-demo",
 });
 assert(request.ensName === ENS_NAME, "the request carries the ENS identity", request.ensName);
-assert(
-  request.payoutKeySource === "local-demo" && request.payoutKey === bytesToHex0x(viewing.publicKey),
-  "the request carries the demo payout key, labelled as such",
-);
-
-await expectReject(400, "a request claiming an ENS source for a body-carried key", () =>
-  call("POST", "/api/requests", {
-    sessionId: borrower.sessionId,
-    amount: 25_000,
-    collateral: 20_000,
-    termDays: 90,
-    passportCommitment: fieldToHex(built0.derived.pc),
-    provenance: passport.provenance,
-    ensName: ENS_NAME,
-    payoutKey: bytesToHex0x(viewing.publicKey),
-    payoutKeySource: "ens-text-record",
-  }),
-);
 
 /* ----------------------------------------------------- 5. the challenge */
 
@@ -293,10 +274,11 @@ assert(accepted.loan.status === "funded", "the loan exists", accepted.loan.id);
 
 /* ------------------------------------------- 8. the payout derivations */
 
-// The lender resolves the identity and derives. Here the ENS record is empty
-// on Sepolia (verified in the browser run), so this is the local-demo path and
-// is announced as such — exactly what PayoutDerivation does in the UI.
-const recipientPublicKey = hexToBytesStrict(request.payoutKey, "payoutKey");
+// The lender resolves the identity and derives against the key published
+// under the ENS name. This script holds the viewing keypair itself, so it
+// derives against its public half directly — the same bytes the ENS record
+// carries once `npm run ens:setup -- --set-text` has written it.
+const recipientPublicKey = viewing.publicKey;
 
 const announcements = [];
 for (let draw = 1; draw <= 2; draw += 1) {
@@ -309,7 +291,7 @@ for (let draw = 1; draw <= 2; draw += 1) {
     ephemeralPublicKey: bytesToHex0x(derived.ephemeralPublicKey),
     viewTag: derived.viewTag,
     payoutAddress: derived.solanaAddress,
-    keySource: "local-demo",
+    keySource: "ens-text-record",
     ensBlockNumber: null,
     ensRecordValue: "",
   });
@@ -339,7 +321,7 @@ await expectReject(403, "a borrower announcing a payout", () =>
     ephemeralPublicKey: announcements[0].ephemeralPublicKey,
     viewTag: 1,
     payoutAddress: announcements[0].payoutAddress,
-    keySource: "local-demo",
+    keySource: "ens-text-record",
   }),
 );
 
@@ -352,7 +334,7 @@ await expectReject(409, "a payout announced against a different ENS name", () =>
     ephemeralPublicKey: bytesToHex0x(new Uint8Array(32).fill(9)),
     viewTag: 1,
     payoutAddress: announcements[0].payoutAddress,
-    keySource: "local-demo",
+    keySource: "ens-text-record",
   }),
 );
 
@@ -407,6 +389,116 @@ assert(state.payouts.length >= 2, "the announcements are in GET /api/state", Str
 const serialised = JSON.stringify(state);
 for (const forbidden of ["collateralQuality", "historyMonths", "restrictedExposure", "witness"]) {
   assert(!serialised.includes(forbidden), `the projection still contains no ${forbidden}`);
+}
+
+/* ----------------------------------- 11. settle it on Solana, for real */
+
+// Everything above is off-chain protocol. This section is workstream E: the
+// same receipt is handed to a deployed Anchor program that verifies the
+// Groth16 proof with the BN254 syscalls, recomputes the policy hash from its
+// own stored account, spends a nullifier PDA and moves SPL tokens to the
+// one-time payout address derived from the ENS payout key.
+//
+// Skipped, loudly, when no program is deployed — a run against a machine with
+// no validator should say "not deployed", never quietly pass.
+
+const settlementConfig = await call("GET", "/api/settlement/config");
+console.log("");
+console.log(
+  `  settlement: ${settlementConfig.cluster} · program ${settlementConfig.programId ?? "none"} · ` +
+    `${settlementConfig.enabled ? "ready" : "DISABLED — " + settlementConfig.problem}`,
+);
+
+if (!settlementConfig.enabled) {
+  console.log("  skipping the on-chain section. `npm run solana:up` brings it back.");
+} else {
+  const { Connection, PublicKey } = await import("@solana/web3.js");
+  const { getAccount, getAssociatedTokenAddressSync } = await import("@solana/spl-token");
+  const connection = new Connection(settlementConfig.rpcUrl, "confirmed");
+
+  assert(
+    settlementConfig.vkMatches,
+    "the deployed program was built against this backend's verifying key",
+    settlementConfig.vkHash ?? "",
+  );
+
+  const settlement = await call("POST", "/api/settlements", {
+    sessionId: lender.sessionId,
+    requestId: request.id,
+    offerId: offer.id,
+    proofId: submitted.id,
+    payoutId: announcements[0].id,
+  });
+
+  for (const step of settlement.steps) {
+    const outcome = step.error
+      ? `ERROR ${step.error}`
+      : step.skipped
+        ? "skipped (already on chain)"
+        : `${step.signature.slice(0, 16)}…  slot ${step.slot}` +
+          (step.computeUnits ? `  ${step.computeUnits} CU` : "");
+    console.log(`    ${step.name.padEnd(22)} ${outcome}`);
+  }
+
+  assert(settlement.status === "settled", "the settlement completed", settlement.error ?? "");
+
+  const present = settlement.steps.find((row) => row.name === "present_and_fund");
+  assert(Boolean(present?.signature), "present_and_fund landed on chain", present?.signature ?? "");
+  assert(
+    (present?.computeUnits ?? 0) > 100_000,
+    "on-chain Groth16 verification really ran",
+    `${present?.computeUnits} compute units — the pairing check alone is ~105k`,
+  );
+
+  // The money. Not the program's word for it: read the accounts back.
+  const payoutAddress = new PublicKey(announcements[0].payoutAddress);
+  const payoutTokens = getAssociatedTokenAddressSync(
+    new PublicKey(settlement.mint),
+    payoutAddress,
+    true,
+  );
+  const tokenAccount = await getAccount(connection, payoutTokens, "confirmed");
+  assert(
+    tokenAccount.amount.toString() === settlement.principalBaseUnits,
+    "the principal arrived at the one-time payout address",
+    `${tokenAccount.amount} base units of ${settlement.mintSymbol}`,
+  );
+
+  const lamports = await connection.getBalance(payoutAddress, "confirmed");
+  assert(
+    lamports >= 2_000_000,
+    "the payout address was funded with SOL so it can actually sweep",
+    `${lamports} lamports`,
+  );
+
+  // The vault must be empty afterwards: a settlement that leaves money in
+  // escrow is a settlement that did not happen.
+  const vaultAfter = await getAccount(
+    connection,
+    new PublicKey(
+      settlement.accounts.find((row) => row.name === "Escrow vault").address,
+    ),
+    "confirmed",
+  );
+  assert(vaultAfter.amount === 0n, "the escrow vault is empty", `${vaultAfter.amount}`);
+
+  /* -------- the replay guard, demonstrated rather than asserted -------- */
+
+  const replayed = await call("POST", `/api/settlements/${settlement.id}/replay`, {
+    sessionId: lender.sessionId,
+    proofId: submitted.id,
+    payoutId: announcements[0].id,
+  });
+  const replayStep = replayed.steps.find((row) => row.name === "replay_attempt");
+  assert(
+    Boolean(replayStep?.error) && !replayStep?.signature,
+    "RE-PRESENTING THE SAME RECEIPT IS REJECTED BY THE RUNTIME",
+    replayStep?.error?.slice(0, 110) ?? "",
+  );
+
+  console.log("");
+  console.log(`  program   ${settlement.programId}`);
+  console.log(`  explorer  ${present?.explorerUrl}`);
 }
 
 console.log("");

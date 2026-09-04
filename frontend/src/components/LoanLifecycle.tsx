@@ -179,8 +179,9 @@ export function LoanLifecycle({
           <div>
             <strong>Loan repaid</strong>
             <span>
-              Repaid {stamp(loan.repaidAt)}. This is a state change on the shared row; no value
-              moved. Settlement would land with the Solana program, which is not implemented.
+              Repaid {stamp(loan.repaidAt)}. This row is the marketplace's record of it; the value
+              itself moves through the <code>private_credit</code> program, and the settlement panel
+              carries the transaction signatures for anyone who would rather check than believe.
             </span>
           </div>
           <StatusPill tone="success">Lifecycle complete</StatusPill>

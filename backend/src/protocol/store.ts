@@ -32,8 +32,12 @@ import type {
   CreditRequest,
   LendingPolicy,
   Loan,
+  MarketBoard,
+  MarketListing,
   Offer,
   Party,
+  Settlement,
+  SettlementStep,
   PassportProvenance,
   PayoutAnnouncement,
   PayoutKeySource,
@@ -206,11 +210,11 @@ function assertBase58Address(value: unknown, name: string): string {
 }
 
 function assertPayoutKeySource(value: unknown, name: string): PayoutKeySource {
-  if (value !== "ens-text-record" && value !== "local-demo") {
+  if (value !== "ens-text-record") {
     throw new ProtocolError(
       400,
-      `${name} must be "ens-text-record" or "local-demo"`,
-      `Received: ${String(value)}`,
+      `${name} must be "ens-text-record"`,
+      `Received: ${String(value)}. The payout key is read from ENS; there is no other source.`,
     );
   }
   return value;
@@ -333,6 +337,15 @@ type StoreState = {
   offers: Map<string, Offer>;
   loans: Map<string, Loan>;
   payouts: Map<string, PayoutAnnouncement>;
+  /**
+   * One row per on-chain settlement, keyed by settlement id.
+   *
+   * The store never talks to Solana itself -- `routes/api.ts` runs the
+   * transactions and hands the finished row here. That keeps the store a pure
+   * in-memory data structure with a self-test that needs no network, which is
+   * the only reason its 40-assertion self-test can run on a plane.
+   */
+  settlements: Map<string, Settlement>;
   /** nullifier hex -> the proof id that claimed it first. The replay guard. */
   nullifiers: Map<string, string>;
   version: number;
@@ -347,6 +360,7 @@ function emptyState(): StoreState {
     offers: new Map(),
     loans: new Map(),
     payouts: new Map(),
+    settlements: new Map(),
     nullifiers: new Map(),
     version: 1,
   };
@@ -504,6 +518,14 @@ class ProtocolStore {
     return this.#state.loans.get(id);
   }
 
+  getPayout(id: string): PayoutAnnouncement | undefined {
+    return this.#state.payouts.get(id);
+  }
+
+  getSettlement(id: string): Settlement | undefined {
+    return this.#state.settlements.get(id);
+  }
+
   /** The whole marketplace, newest-first. */
   snapshot(): ProtocolState {
     return {
@@ -515,6 +537,7 @@ class ProtocolStore {
       offers: newestFirst(this.#state.offers.values()),
       loans: newestFirst(this.#state.loans.values()),
       payouts: newestFirst(this.#state.payouts.values()),
+      settlements: newestFirst(this.#state.settlements.values()),
     };
   }
 
@@ -541,6 +564,69 @@ class ProtocolStore {
     }
     void sessionId; // reserved: per-session filtering lands with workstream E.
     return this.snapshot();
+  }
+
+  /**
+   * The public marketplace board. No session needed: everything in it is
+   * already visible to every party in `ProtocolState`, condensed to the
+   * numbers a visitor scanning the market wants. Newest listing first.
+   */
+  marketBoard(): MarketBoard {
+    const snapshot = this.snapshot();
+    const lenders = new Set<string>();
+    const listings: MarketListing[] = snapshot.requests
+      .filter((request) => request.status !== "withdrawn")
+      .map((request) => {
+        const challenges = snapshot.challenges.filter(
+          (row) => row.requestId === request.id && row.status !== "withdrawn",
+        );
+        for (const challenge of challenges) lenders.add(challenge.lenderSessionId);
+        const verifiedReceipts = snapshot.proofs.filter(
+          (row) =>
+            row.requestId === request.id &&
+            row.verification.status === "verified" &&
+            row.publicSignals.eligible === true,
+        ).length;
+        const offers = snapshot.offers.filter(
+          (row) =>
+            row.requestId === request.id && (row.status === "open" || row.status === "accepted"),
+        );
+        for (const offer of offers) lenders.add(offer.lenderSessionId);
+        const bestApr = offers.length === 0 ? null : Math.min(...offers.map((row) => row.apr));
+        const loan = snapshot.loans.find((row) => row.requestId === request.id) ?? null;
+        const settled = snapshot.settlements.some(
+          (row) => row.requestId === request.id && row.status === "settled",
+        );
+        return {
+          requestId: request.id,
+          borrowerLabel: request.borrowerLabel,
+          ensName: request.ensName,
+          amount: request.amount,
+          collateral: request.collateral,
+          termDays: request.termDays,
+          status: request.status,
+          createdAt: request.createdAt,
+          underwriting: challenges.filter((row) => row.status === "pending").length,
+          verifiedReceipts,
+          offers: offers.length,
+          bestApr,
+          loanStatus: loan ? loan.status : null,
+          settled,
+        };
+      });
+
+    return {
+      serverTime: Date.now(),
+      version: snapshot.version,
+      listings,
+      totals: {
+        open: listings.filter((row) => row.loanStatus === null).length,
+        funded: listings.filter((row) => row.loanStatus !== null).length,
+        settled: listings.filter((row) => row.settled).length,
+        requestedUsd: listings.reduce((sum, row) => sum + row.amount, 0),
+        lenders: lenders.size,
+      },
+    };
   }
 
   /**
@@ -589,43 +675,12 @@ class ProtocolStore {
     const provenance = assertProvenance(body.provenance);
 
     /**
-     * The ENS identity, and the demo fallback that exists only because
-     * registering a name needs funded Sepolia ETH.
-     *
-     * `payoutKey` is accepted ONLY with `payoutKeySource: "local-demo"`. A
-     * client claiming `ens-text-record` is claiming the key is readable on
-     * chain, in which case shipping a copy of it in the request body is at
-     * best redundant and at worst a way to make the lender pay to a key that
-     * ENS never published. Refuse the combination rather than silently
-     * preferring one of two sources.
+     * The ENS identity is required. The lender's client derives the payout
+     * address from the key published under this name, so a request without a
+     * name is a request nobody can pay. The key itself never travels in the
+     * body: the lender reads it from chain or does not pay.
      */
-    const ensName =
-      body.ensName === undefined || body.ensName === null
-        ? null
-        : assertEnsName(body.ensName, "ensName");
-    const payoutKeySource =
-      body.payoutKeySource === undefined || body.payoutKeySource === null
-        ? null
-        : assertPayoutKeySource(body.payoutKeySource, "payoutKeySource");
-    const payoutKey =
-      body.payoutKey === undefined || body.payoutKey === null
-        ? null
-        : assertHexBytes(body.payoutKey, "payoutKey", 32);
-
-    if (payoutKey !== null && payoutKeySource !== "local-demo") {
-      throw new ProtocolError(
-        400,
-        "payoutKey may only accompany payoutKeySource 'local-demo'",
-        "A key the lender is meant to read from ENS must not also travel in the request body.",
-      );
-    }
-    if (payoutKey !== null && ensName === null) {
-      throw new ProtocolError(
-        400,
-        "payoutKey requires ensName",
-        "The payout key is derived per ENS identity; a key with no name attached cannot be used.",
-      );
-    }
+    const ensName = assertEnsName(body.ensName, "ensName");
 
     const request: CreditRequest = {
       id: randomUUID(),
@@ -640,8 +695,6 @@ class ProtocolStore {
       passportCommitment: commitment,
       provenance,
       ensName,
-      payoutKey,
-      payoutKeySource,
       status: "open",
       createdAt: Date.now(),
     };
@@ -1103,6 +1156,38 @@ class ProtocolStore {
     return announcement;
   }
 
+  /* ------------------------------------------------------- solana settlement */
+
+  /**
+   * Record the result of one on-chain settlement.
+   *
+   * Stored whether it succeeded or FAILED, on purpose. A settlement that was
+   * rejected on chain -- an expired receipt, a nullifier already spent, a
+   * policy hash that did not recompute -- is the most informative thing this
+   * protocol can show, and hiding it would leave the UI able to display only
+   * good news.
+   */
+  recordSettlement(settlement: Settlement): Settlement {
+    this.#state.settlements.set(settlement.id, settlement);
+    this.#bump();
+    return settlement;
+  }
+
+  /** Append the outcome of a deliberate replay attempt to an existing row. */
+  appendSettlementStep(settlementId: string, step: SettlementStep): Settlement {
+    const settlement = this.#state.settlements.get(settlementId);
+    if (!settlement) {
+      throw new ProtocolError(404, "Unknown settlement", settlementId);
+    }
+    const next: Settlement = {
+      ...settlement,
+      steps: [...settlement.steps.filter((row) => row.name !== step.name), step],
+    };
+    this.#state.settlements.set(settlementId, next);
+    this.#bump();
+    return next;
+  }
+
   /* ----------------------------------------------------------------- admin */
 
   /**
@@ -1210,6 +1295,7 @@ if (process.argv[1] && process.argv[1].endsWith("store.ts")) {
       termDays: 90,
       passportCommitment: hex("a1"),
       provenance,
+      ensName: "privatecredit.eth",
     },
     borrower,
   );
@@ -1231,6 +1317,7 @@ if (process.argv[1] && process.argv[1].endsWith("store.ts")) {
         termDays: 1,
         passportCommitment: hex("a1"),
         provenance,
+        ensName: "privatecredit.eth",
       },
       lender,
     ),
@@ -1244,6 +1331,21 @@ if (process.argv[1] && process.argv[1].endsWith("store.ts")) {
         termDays: 1,
         passportCommitment: hex("a1"),
         provenance,
+        ensName: "privatecredit.eth",
+      },
+      borrower,
+    ),
+  );
+  expectError(400, "a request with no ENS identity", () =>
+    store.publishRequest(
+      {
+        sessionId: borrower.sessionId,
+        amount: 1,
+        collateral: 1,
+        termDays: 1,
+        passportCommitment: hex("a1"),
+        provenance,
+        ensName: "" as never,
       },
       borrower,
     ),
@@ -1257,6 +1359,7 @@ if (process.argv[1] && process.argv[1].endsWith("store.ts")) {
         termDays: 1,
         passportCommitment: "0x" + "f".repeat(64),
         provenance,
+        ensName: "privatecredit.eth",
       },
       borrower,
     ),
@@ -1436,7 +1539,7 @@ if (process.argv[1] && process.argv[1].endsWith("store.ts")) {
     ephemeralPublicKey: "0x" + "aa".repeat(32),
     viewTag: 17,
     payoutAddress: "GzjEmiRXvcCvmtGFZ6FFMaX2rhFhVWHMpwKooCLzz2UY",
-    keySource: "local-demo" as const,
+    keySource: "ens-text-record" as const,
     ensBlockNumber: "11629098",
     ensRecordValue: "",
   };
@@ -1507,7 +1610,7 @@ if (process.argv[1] && process.argv[1].endsWith("store.ts")) {
   const borrowerView = store.projectFor("borrower", borrower.sessionId);
   const lenderView = store.projectFor("lender", lender.sessionId);
   assert(borrowerView.requests.length === lenderView.requests.length, "both roles see the marketplace");
-  assert(Object.keys(borrowerView).sort().join(",") === "challenges,loans,offers,payouts,proofs,requests,serverTime,version", "ProtocolState keys: " + Object.keys(borrowerView).sort().join(","));
+  assert(Object.keys(borrowerView).sort().join(",") === "challenges,loans,offers,payouts,proofs,requests,serverTime,settlements,version", "ProtocolState keys: " + Object.keys(borrowerView).sort().join(","));
   const serialised = JSON.stringify(lenderView);
   // Note "assets" is deliberately absent from this list: it is a PolicyResult
   // *key* (a pass/fail label for a comparison the lender itself specified), not

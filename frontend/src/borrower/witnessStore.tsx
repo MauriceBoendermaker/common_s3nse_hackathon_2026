@@ -46,7 +46,7 @@ import {
 
 import { ApiError, fetchPassport } from "../shared/apiClient";
 import { passportCommitment, randomFieldElement } from "../shared/policy";
-import type { PassportResponse } from "../shared/protocol-types";
+import type { PassportRequestBody, PassportResponse } from "../shared/protocol-types";
 
 export type WitnessStatus = "empty" | "loading" | "ready" | "error";
 
@@ -64,11 +64,50 @@ export type WitnessStore = {
   status: WitnessStatus;
   error: string | null;
   /** Real network work: 1-4 seconds of Solana RPC + Jupiter pricing. */
-  load: (address: string) => Promise<void>;
+  load: (auth: PassportRequestBody) => Promise<void>;
   clear: () => void;
 };
 
 const WitnessContext = createContext<WitnessStore | null>(null);
+
+/**
+ * The snapshot survives a reload of THIS TAB and nothing else. `sessionStorage`
+ * is per tab and dies with it; the values never reach the server, the lender
+ * tab, or another tab. Without this, a dev-server reload between listing and
+ * proving strands a listed request whose salt no longer exists anywhere.
+ */
+const STORAGE_KEY = "pc.witness.v1";
+
+type Persisted = {
+  address: string;
+  passport: PassportResponse;
+  salt: string;
+  blindingFactor: string;
+  commitment: string;
+};
+
+function readPersisted(): Persisted | null {
+  try {
+    const raw = window.sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Persisted>;
+    if (!parsed.address || !parsed.passport || !parsed.salt || !parsed.blindingFactor || !parsed.commitment) {
+      return null;
+    }
+    return parsed as Persisted;
+  } catch {
+    return null;
+  }
+}
+
+function writePersisted(value: Persisted | null): void {
+  try {
+    if (value) window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    else window.sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // No storage available: the snapshot simply does not survive a reload.
+  }
+}
 
 /**
  * Solana addresses are base58-encoded 32-byte public keys: 32-44 characters
@@ -82,12 +121,13 @@ export function isLikelySolanaAddress(value: string): boolean {
 }
 
 export function WitnessProvider({ children }: { children: ReactNode }) {
-  const [address, setAddress] = useState("");
-  const [passport, setPassport] = useState<PassportResponse | null>(null);
-  const [salt, setSalt] = useState<string | null>(null);
-  const [blindingFactor, setBlindingFactor] = useState<string | null>(null);
-  const [commitment, setCommitment] = useState<string | null>(null);
-  const [status, setStatus] = useState<WitnessStatus>("empty");
+  const [restored] = useState(() => readPersisted());
+  const [address, setAddress] = useState(restored?.address ?? "");
+  const [passport, setPassport] = useState<PassportResponse | null>(restored?.passport ?? null);
+  const [salt, setSalt] = useState<string | null>(restored?.salt ?? null);
+  const [blindingFactor, setBlindingFactor] = useState<string | null>(restored?.blindingFactor ?? null);
+  const [commitment, setCommitment] = useState<string | null>(restored?.commitment ?? null);
+  const [status, setStatus] = useState<WitnessStatus>(restored ? "ready" : "empty");
   const [error, setError] = useState<string | null>(null);
 
   const clear = useCallback(() => {
@@ -98,10 +138,11 @@ export function WitnessProvider({ children }: { children: ReactNode }) {
     setCommitment(null);
     setStatus("empty");
     setError(null);
+    writePersisted(null);
   }, []);
 
-  const load = useCallback(async (next: string) => {
-    const trimmed = next.trim();
+  const load = useCallback(async (auth: PassportRequestBody) => {
+    const trimmed = auth.address.trim();
     setAddress(trimmed);
     setStatus("loading");
     setError(null);
@@ -109,7 +150,7 @@ export function WitnessProvider({ children }: { children: ReactNode }) {
     setCommitment(null);
 
     try {
-      const response = await fetchPassport(trimmed);
+      const response = await fetchPassport({ ...auth, address: trimmed });
 
       // One salt per passport, generated the moment the snapshot exists and
       // never regenerated for it. Re-salting after a challenge arrived would
@@ -118,11 +159,19 @@ export function WitnessProvider({ children }: { children: ReactNode }) {
       const nextSalt = randomFieldElement();
       const nextBlinding = randomFieldElement();
 
+      const nextCommitment = passportCommitment(response.witness, nextSalt);
       setPassport(response);
       setSalt(nextSalt);
       setBlindingFactor(nextBlinding);
-      setCommitment(passportCommitment(response.witness, nextSalt));
+      setCommitment(nextCommitment);
       setStatus("ready");
+      writePersisted({
+        address: trimmed,
+        passport: response,
+        salt: nextSalt,
+        blindingFactor: nextBlinding,
+        commitment: nextCommitment,
+      });
     } catch (cause) {
       const message =
         cause instanceof ApiError
@@ -140,6 +189,7 @@ export function WitnessProvider({ children }: { children: ReactNode }) {
       setCommitment(null);
       setStatus("error");
       setError(message);
+      writePersisted(null);
     }
   }, []);
 

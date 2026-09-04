@@ -38,7 +38,7 @@ import {
 import { shortHash } from "../shared/policy";
 import type { PolicyChallenge, ProofSubmission } from "../shared/protocol-types";
 import { ProofCheck } from "./ProofCheck";
-import { StatusPill } from "./ui";
+import { Disclosure, StatusPill } from "./ui";
 
 type ProofReceiptProps = {
   proof: ProofSubmission;
@@ -78,65 +78,97 @@ export function ProofReceipt({
         </StatusPill>
       </div>
 
-      <dl className="proof-metadata">
-        <div>
-          <dt>Receipt id</dt>
-          <dd>{proof.id}</dd>
-        </div>
-        <div>
-          <dt>Passport commitment [0]</dt>
-          <dd>{shortHash(proof.publicSignals.passportCommitment)}</dd>
-        </div>
-        <div>
-          <dt>Eligible [1]</dt>
-          <dd>{eligible ? "1" : "0"}</dd>
-        </div>
-        <div>
-          <dt>Policy hash [2]</dt>
-          <dd>{shortHash(proof.publicSignals.policyHash)}</dd>
-        </div>
-        <div>
-          <dt>Subject commitment [3]</dt>
-          <dd>{shortHash(proof.publicSignals.subjectCommitment)}</dd>
-        </div>
-        <div>
-          <dt>Expiry [4]</dt>
-          <dd>{formatCountdown(expiryMs, now)}</dd>
-        </div>
-        <div>
-          <dt>Nullifier [5]</dt>
-          <dd>{shortHash(proof.publicSignals.nullifier)}</dd>
-        </div>
-        <div>
-          <dt>Verifier commitment [6]</dt>
-          <dd>{shortHash(proof.publicSignals.verifierCommitment)}</dd>
-        </div>
-        <div>
-          <dt>Bound verifier</dt>
-          <dd>
-            {challenge.lenderLabel} · {shortHash(challenge.verifierCommitment)}
-          </dd>
-        </div>
-        <div>
-          <dt>Proof bytes</dt>
-          <dd>{proof.proof ? `${proof.proof.length} chars of JSON` : "none (policy-eval-v0)"}</dd>
-        </div>
-      </dl>
+      {/*
+        THE ORDER HERE IS THE POINT.
+
+        This block used to open with ten rows of field elements, then six rows
+        of circuit metadata, then two paragraphs, and only then the four
+        outcomes anyone actually reads. Every one of those values is load-
+        bearing evidence and none of it can be deleted — but a reader who has
+        to scroll past a Poseidon hash to find out whether the applicant
+        qualified is a reader who stops reading. Outcomes first; the machinery
+        that produced them one click away, unabridged.
+      */}
+      <div className="proof-section-heading">
+        <span>
+          <FileKey2 size={15} /> What the proof says
+        </span>
+        <small>Pass or fail only — never the values behind them</small>
+      </div>
+      <div className="claim-grid">
+        {proof.results.map((result) => (
+          <ProofCheck
+            key={result.key}
+            label={result.label}
+            result={result.passed ? "Satisfied" : "Not satisfied"}
+            privacy={result.requirement}
+            status={result.passed ? "pass" : "fail"}
+            compact
+          />
+        ))}
+      </div>
+
+      <Disclosure
+        summary="The public signals this receipt carries"
+        count={`${N_PUBLIC_SIGNALS} signals`}
+      >
+        <dl className="proof-metadata">
+          <div>
+            <dt>Receipt id</dt>
+            <dd>{proof.id}</dd>
+          </div>
+          <div>
+            <dt>Passport commitment [0]</dt>
+            <dd>{shortHash(proof.publicSignals.passportCommitment)}</dd>
+          </div>
+          <div>
+            <dt>Eligible [1]</dt>
+            <dd>{eligible ? "1" : "0"}</dd>
+          </div>
+          <div>
+            <dt>Policy hash [2]</dt>
+            <dd>{shortHash(proof.publicSignals.policyHash)}</dd>
+          </div>
+          <div>
+            <dt>Subject commitment [3]</dt>
+            <dd>{shortHash(proof.publicSignals.subjectCommitment)}</dd>
+          </div>
+          <div>
+            <dt>Expiry [4]</dt>
+            <dd>{formatCountdown(expiryMs, now)}</dd>
+          </div>
+          <div>
+            <dt>Nullifier [5]</dt>
+            <dd>{shortHash(proof.publicSignals.nullifier)}</dd>
+          </div>
+          <div>
+            <dt>Verifier commitment [6]</dt>
+            <dd>{shortHash(proof.publicSignals.verifierCommitment)}</dd>
+          </div>
+          <div>
+            <dt>Bound verifier</dt>
+            <dd>
+              {challenge.lenderLabel} · {shortHash(challenge.verifierCommitment)}
+            </dd>
+          </div>
+          <div>
+            <dt>Proof bytes</dt>
+            <dd>{proof.proof ? `${proof.proof.length} chars of JSON` : "none (policy-eval-v0)"}</dd>
+          </div>
+        </dl>
+      </Disclosure>
 
       {proof.proofSystem === "groth16-bn254" ? (
-        <>
-          <div className="proof-section-heading">
-            <span>
-              <FileKey2 size={15} /> The statement that was proven
-            </span>
-            <small>
-              {CIRCUIT_NAME} · {CIRCOM_VERSION}
-            </small>
-          </div>
+        <Disclosure
+          summary="The statement that was proven, and where"
+          count={`${CIRCUIT_CONSTRAINTS.total.toLocaleString("en-US")} constraints`}
+        >
           <dl className="proof-metadata">
             <div>
               <dt>Circuit</dt>
-              <dd>{CIRCUIT_NAME}.circom</dd>
+              <dd>
+                {CIRCUIT_NAME}.circom · {CIRCOM_VERSION}
+              </dd>
             </div>
             <div>
               <dt>Constraints</dt>
@@ -174,27 +206,8 @@ export function ProofReceipt({
             the browser&apos;s copy; the server states its own hash in the checks below, and refuses
             to verify at all if the two differ.
           </p>
-        </>
+        </Disclosure>
       ) : null}
-
-      <div className="proof-section-heading">
-        <span>
-          <FileKey2 size={15} /> Public outputs
-        </span>
-        <small>Pass or fail only — never the values behind them</small>
-      </div>
-      <div className="claim-grid">
-        {proof.results.map((result) => (
-          <ProofCheck
-            key={result.key}
-            label={result.label}
-            result={result.passed ? "Satisfied" : "Not satisfied"}
-            privacy={result.requirement}
-            status={result.passed ? "pass" : "fail"}
-            compact
-          />
-        ))}
-      </div>
 
       {showVerification ? (
         <>
@@ -244,6 +257,7 @@ export function ProofReceipt({
       </div>
 
       {proof.proofSystem === "groth16-bn254" ? (
+        <Disclosure summary="The honest caveat: this trusted setup is not trustworthy">
         <p className="proof-receipt__disclaimer">
           <strong>The trusted setup is a development ceremony, not a real one.</strong> The proving
           and verifying keys were generated on one machine by one person. Whoever ran it
@@ -262,6 +276,7 @@ export function ProofReceipt({
           server re-checks the pairing equation against the same verifying key rather than trusting
           this receipt.
         </p>
+        </Disclosure>
       ) : null}
 
       {proof.proofSystem === "policy-eval-v0" ? (

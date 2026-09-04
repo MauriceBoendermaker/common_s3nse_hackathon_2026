@@ -108,7 +108,12 @@ if [ -n "$BSID" ] && [ -n "$LSID" ]; then ok "both sessions issued"; else bad "s
 
 # -------------------------------------------------- 2. real mainnet passport
 step "2. borrower reads a REAL Solana mainnet passport"
+# The unsigned read exists only when the backend runs with ALLOW_UNSIGNED_PASSPORT=1;
+# the app itself uses POST /api/passport with a Phantom signature.
 curl -s --max-time 180 "$BASE/passport/$ADDRESS" -o "$W/passport.json"
+if grep -q '"unknown_endpoint"' "$W/passport.json"; then
+  bad "GET /api/passport is disabled - restart the backend with ALLOW_UNSIGNED_PASSPORT=1 for this script"
+fi
 echo "  address    $ADDRESS"
 echo "  witness    $(j "$W/passport.json" witness)"
 echo "  history    $(j "$W/passport.json" provenance.history)"

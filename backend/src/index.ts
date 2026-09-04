@@ -8,7 +8,8 @@
  * in the terminal a judge is looking at, not only in a README.
  */
 
-import { READ_CLUSTER, SETTLE_CLUSTER } from "./adapters/solanaPortfolio.ts";
+import { READ_CLUSTER } from "./adapters/solanaPortfolio.ts";
+import { clusterName, readDeployment, rpcUrl } from "./adapters/solanaSettlement.ts";
 import { RPC_ENDPOINTS } from "./adapters/solanaRpc.ts";
 import { staleBuiltSpaWarning, verifierBanner, verifierStatus } from "./protocol/verifier.ts";
 import { FRONTEND_DIST, app, servesStatic } from "./app.ts";
@@ -20,7 +21,16 @@ const server = app.listen(port, () => {
   console.log(`Private Credit backend (${API_VERSION}) listening on http://localhost:${port}`);
   console.log(`  solana rpc     ${RPC_ENDPOINTS.join(", ")}`);
   console.log(`  read cluster   ${READ_CLUSTER}  (real balances)`);
-  console.log(`  settle cluster ${SETTLE_CLUSTER}  (workstream E)`);
+  // The settle cluster is read from the resolved deployment rather than from a
+  // constant, because "which chain did this actually settle on" is exactly the
+  // kind of thing a stale string gets wrong at the worst moment.
+  const deployment = readDeployment();
+  console.log(
+    `  settle cluster ${clusterName()} @ ${rpcUrl()}  ` +
+      (deployment
+        ? `(program ${deployment.programId}, mint ${deployment.mintSymbol})`
+        : "(NOT DEPLOYED — run `npm run solana:up`)"),
+  );
   // The verifying key this server checks proofs against, and whether it is the
   // same key the browser's proving key was generated with. Stale artifacts are
   // the single most confusing failure mode in this workstream, so the answer is

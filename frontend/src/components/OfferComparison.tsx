@@ -103,9 +103,7 @@ export function OfferComparison({
 
       <div className="task-card__action task-card__action--flush">
         <span className="action-note">
-          {single
-            ? "One funded offer. There are no simulated competitors in this marketplace — open another lender tab to add a second."
-            : `${offers.length} funded offers, all real rows from the shared store.`}
+          {single ? "One offer so far." : `${offers.length} offers. Lowest total cost is marked.`}
         </span>
         <Button
           onClick={() => onAccept(selectedOffer)}

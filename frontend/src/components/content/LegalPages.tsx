@@ -54,10 +54,10 @@ export function PrivacyPage({ onNavigate }: { onNavigate: (view: SiteView) => vo
     >
       <section>
         <h2>1. Prototype scope</h2>
-        <p>Private Credit is an experimental application created for Common S3nse 2026. Wallet connections, zero-knowledge proving, on-chain verification, and settlement are not implemented; no real loan application is submitted and no funds move onchain. Portfolio balances, by contrast, are read for real from Solana mainnet, and the marketplace records that pass between the two parties are held by a backend we operate.</p>
+        <p>Private Credit is an experimental application created for Common S3nse 2026. No real loan application is submitted and no real money is involved: settlement happens on a Solana test cluster, in a token this project minted, signed by operator keypairs the backend holds. Portfolio balances, by contrast, are read for real from Solana mainnet, ENS names are resolved for real on Sepolia, and the marketplace records that pass between the two parties are held by a backend we operate.</p>
       </section>
       <section>
-        <h2>2. Information used in the demo</h2>
+        <h2>2. Information used by the app</h2>
         <p>The address you supply is sent to our backend, which reads its balances from Solana mainnet RPC and prices them through Jupiter. That address, the values read for it, and the timing and network metadata of the request are visible to us. The resulting snapshot is returned to your browser and no endpoint accepts it back. Identities, policies, offers, and loan terms shown alongside it are demonstration values.</p>
       </section>
       <section>
@@ -99,7 +99,7 @@ export function TermsPage({ onNavigate }: { onNavigate: (view: SiteView) => void
       </section>
       <section>
         <h2>2. Experimental status</h2>
-        <p>The software is incomplete, unaudited, and subject to change. Balances are read live from Solana mainnet, ENS names are resolved live on Sepolia, and requests, challenges, receipts, offers, and lifecycle states are real records in a backend store. The receipt is a real BN254 Groth16 proof, generated in the browser and verified by the backend, produced under a development trusted setup rather than a real ceremony — whoever ran that ceremony could forge proofs that verify. One-time payout addresses are really derived from the applicant's ENS payout record, but no Solana program is deployed, no funds move, and wallet confirmations are simulated.</p>
+        <p>The software is incomplete, unaudited, and subject to change. Balances are read live from Solana mainnet, ENS names are resolved live on Sepolia, and requests, challenges, receipts, offers, and lifecycle states are real records in a backend store. The receipt is a real BN254 Groth16 proof, generated in the browser, verified by the backend, and verified again on chain by a deployed Anchor program that also recomputes the policy hash, spends a nullifier account and moves an SPL escrow to a one-time payout address. It is produced under a development trusted setup rather than a real ceremony &mdash; whoever ran that ceremony could forge proofs that verify, on chain included. The Groth16 verifier the program uses is itself unaudited. Settlement is on a test cluster, in a token we minted, signed by custodial demo keypairs rather than by user wallets.</p>
       </section>
       <section>
         <h2>3. No financial, legal, or tax advice</h2>
@@ -165,7 +165,7 @@ export function RiskDisclosuresPage({ onNavigate }: { onNavigate: (view: SiteVie
       </section>
       <section>
         <h2>8. Prototype risk</h2>
-        <p>Wallet actions, proving, on-chain verification, and settlement are not implemented, and the backend is a single unaudited process operated by the project authors. Interface states may not represent the failure modes, latency, costs, finality, or adversarial conditions of a real deployment.</p>
+        <p>Settlement runs on a Solana test cluster against an unaudited program, using a token this project minted and operator keypairs the backend holds; the backend itself is a single unaudited process operated by the project authors. Interface states may not represent the failure modes, latency, costs, finality, or adversarial conditions of a real deployment.</p>
       </section>
     </LegalLayout>
   );

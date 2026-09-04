@@ -1,15 +1,14 @@
 /**
- * The applicant's workspace — one of the two independent clients.
+ * The borrower's workspace — one of the two independent clients.
  *
- * This component holds NO protocol state of its own. It calls
- * `useProtocolState("borrower")` for its own long-poll against the shared
- * store, and everything it renders about requests, challenges, proofs, offers
+ * Holds NO protocol state of its own: `useProtocolState("borrower")` long-polls
+ * the shared store and everything about requests, challenges, proofs, offers
  * and loans comes back over HTTP from the server's borrower projection.
  *
- * It is also the only file outside `frontend/src/borrower/` permitted to import
- * `witnessStore`, and it does so only to mount the provider. Because `App.tsx`
- * lazy-loads this module, Rollup emits it as its own chunk: the witness code is
- * in the borrower chunk and is absent from the lender chunk.
+ * The only file outside `frontend/src/borrower/` allowed to import
+ * `witnessStore`, and only to mount the provider. `App.tsx` lazy-loads this
+ * module, so the witness and the viewing key live in the borrower chunk and
+ * are absent from the lender chunk.
  */
 
 import { useMemo, useState } from "react";
@@ -18,7 +17,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CircleDollarSign,
-  Fingerprint,
   Link2,
   Radio,
 } from "lucide-react";
@@ -40,7 +38,6 @@ import {
   withdrawRequest,
 } from "../shared/apiClient";
 import { formatUsd } from "../shared/format";
-import { bytesToHex0x } from "../shared/ensPayout";
 import { shortHash } from "../shared/policy";
 import type { Offer } from "../shared/protocol-types";
 import { useProtocolState } from "../shared/useProtocolState";
@@ -48,18 +45,19 @@ import { usePublishPartyStatus } from "../state/connectionStatus";
 import { getTotalRepayment } from "../state/types";
 import { FlowSteps } from "./FlowSteps";
 import { LoanLifecycle } from "./LoanLifecycle";
+import { SettlementPanel } from "./SettlementPanel";
 import { OfferComparison } from "./OfferComparison";
 import { PrivacyBoundary } from "./PrivacyBoundary";
 import { Button, Card, Spinner, StatusPill } from "./ui";
 import { WalletActionDialog, type ConfirmAction } from "./WalletActionDialog";
 
 const applicantSteps = [
-  { label: "Connect account", description: "Read a Solana address" },
-  { label: "Review passport", description: "Check the machine-read evidence" },
-  { label: "Publish request", description: "Amount, term, first-loss" },
-  { label: "Answer the policy", description: "Evaluate and submit a receipt" },
-  { label: "Compare offers", description: "Real funded offers only" },
-  { label: "Manage the loan", description: "Draw and repay" },
+  { label: "Connect", description: "ENS identity and Solana portfolio" },
+  { label: "Passport", description: "Four private values, one hash" },
+  { label: "List request", description: "Amount, term, first-loss" },
+  { label: "Prove eligibility", description: "Answer a lender's policy" },
+  { label: "Offers", description: "Pick the best rate" },
+  { label: "Loan", description: "Draw and repay" },
 ] as const;
 
 const amountOptions = [10_000, 25_000, 50_000, 100_000];
@@ -78,7 +76,7 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
 
   usePublishPartyStatus({
     role: "borrower",
-    label: session?.label ?? "applicant",
+    label: session?.label ?? "borrower",
     sessionId: session?.sessionId ?? null,
     connection,
   });
@@ -120,19 +118,14 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
     const loan = state && request ? (state.loans.find((row) => row.requestId === request.id) ?? null) : null;
     const payouts =
       state && request ? state.payouts.filter((row) => row.requestId === request.id) : [];
-    return { request, challenge, proof, offers, loan, payouts };
+    const settlement =
+      state && request
+        ? (state.settlements.find((row) => row.requestId === request.id) ?? null)
+        : null;
+    return { request, challenge, proof, offers, loan, payouts, settlement };
   }, [state, sessionId]);
 
-  const { request, challenge, proof, offers, loan, payouts } = view;
-
-  /**
-   * The ENS identity is required before anything can be published, because two
-   * things downstream have no fallback without it: public signal [3] is
-   * `Poseidon2(utf8ToField(ensName), blindingFactor)`, and the payout address
-   * is derived from that name's text record. A request with no name is a
-   * request nobody can pay.
-   */
-  const identityReady = ens.name.length > 0 && ens.effectiveKey !== null;
+  const { request, challenge, proof, offers, loan, payouts, settlement } = view;
 
   const step = loan
     ? 5
@@ -170,12 +163,9 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
       <div className="product-page" id="top">
         <Card className="empty-workspace">
           <Spinner />
-          <span className="section-label">Applicant workspace</span>
-          <h2>{connection === "error" ? "Cannot reach the backend" : "Claiming a session"}</h2>
-          <p>
-            {error ??
-              "Asking the protocol backend for a borrower session id, then opening a long-poll on the shared state."}
-          </p>
+          <span className="section-label">Borrow</span>
+          <h2>{connection === "error" ? "Cannot reach the backend" : "Opening your session"}</h2>
+          <p>{error ?? "Claiming a borrower session on the marketplace backend."}</p>
           <small>Connection: {connection}</small>
         </Card>
       </div>
@@ -186,12 +176,12 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
     <div className="product-page" id="top">
       <header className="product-page__header">
         <div>
-          <span className="eyebrow">Credit applicant · session {shortHash(session.sessionId)}</span>
-          <h1>Request credit without exposing your portfolio.</h1>
+          <span className="eyebrow">Borrow · session {shortHash(session.sessionId)}</span>
+          <h1>Borrow against what you can prove.</h1>
         </div>
         <StatusPill tone={request ? "success" : "neutral"}>
           {request ? <Radio size={14} /> : <span className="network-dot" />}
-          {request ? `Request live · ${request.status}` : "Private draft"}
+          {request ? `Listed · ${request.status}` : "Not listed yet"}
         </StatusPill>
       </header>
 
@@ -199,13 +189,13 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
         <aside className="workflow-sidebar">
           <div className="workflow-sidebar__intro">
             <span className="avatar avatar--ens" aria-hidden="true">
-              {session.label.charAt(0).toUpperCase()}
+              {(ens.name || session.label).charAt(0).toUpperCase()}
             </span>
             <div>
-              <strong>{session.label}</strong>
+              <strong>{ens.name || session.label}</strong>
               <span>
                 {witness.status === "ready"
-                  ? `Passport read · ${shortHash(witness.commitment ?? "0x")}`
+                  ? `Passport ${shortHash(witness.commitment ?? "0x")}`
                   : "No passport yet"}
               </span>
             </div>
@@ -216,8 +206,8 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
               ZK
             </span>
             <p>
-              <strong>The witness never leaves this tab.</strong> The backend has no field that could store
-              it and the lender&apos;s bundle does not contain the code that reads it.
+              <strong>Your balances never leave this tab.</strong> Lenders receive a proof, not
+              your portfolio.
             </p>
           </div>
           {request && !loan ? (
@@ -232,7 +222,7 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                 })
               }
             >
-              Withdraw this request
+              Withdraw this listing
             </button>
           ) : null}
         </aside>
@@ -248,37 +238,12 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
             </div>
           ) : null}
 
+          {step <= 1 && !ens.ready ? <EnsIdentityPanel /> : null}
+
           {step === 0 ? <ConnectAccount onLoaded={() => setReviewed(false)} /> : null}
 
           {step === 1 ? (
             <PassportReview onBack={() => witness.clear()} onContinue={() => setReviewed(true)} />
-          ) : null}
-
-          {/*
-            The ENS identity spans both of the first two steps. It has to
-            outlive the passport read, because the subject commitment it shows
-            is Poseidon2(utf8ToField(ensName), blindingFactor) and the blinding
-            factor does not exist until a passport has been loaded — showing
-            the panel only on step 1 would mean the applicant never sees the
-            value that will represent them.
-          */}
-          {step <= 1 ? (
-            <Card className="task-card">
-              <div className="task-card__heading">
-                <span className="task-icon">
-                  <Fingerprint size={22} />
-                </span>
-                <div>
-                  <span className="section-label">Identity · required before publishing</span>
-                  <h2>Resolve the ENS name</h2>
-                  <p>
-                    The ENS name is who the applicant is. The Solana address above is where their
-                    portfolio was read. Only the first of the two can be paid.
-                  </p>
-                </div>
-              </div>
-              <EnsIdentityPanel />
-            </Card>
           ) : null}
 
           {step === 2 && witness.passport && witness.commitment ? (
@@ -288,12 +253,9 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                   <CircleDollarSign size={22} />
                 </span>
                 <div>
-                  <span className="section-label">Step 3 of 6</span>
-                  <h2>Set the public terms</h2>
-                  <p>
-                    Publishing puts a row in the shared store that every lender tab can see. Choose what it
-                    contains.
-                  </p>
+                  <span className="section-label">Step 3 · List on the marketplace</span>
+                  <h2>Set your terms</h2>
+                  <p>Every lender on the market sees these terms, your ENS name and one hash.</p>
                 </div>
               </div>
 
@@ -341,7 +303,7 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                 </div>
 
                 <div className="terms-summary">
-                  <span className="section-label">Becomes public</span>
+                  <span className="section-label">Your listing</span>
                   <strong>{formatUsd(amount)}</strong>
                   <dl>
                     <div>
@@ -353,20 +315,12 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                       <dd>{formatUsd(collateral)}</dd>
                     </div>
                     <div>
-                      <dt>Passport commitment</dt>
-                      <dd>{shortHash(witness.commitment)}</dd>
-                    </div>
-                    <div>
-                      <dt>ENS identity</dt>
+                      <dt>Identity</dt>
                       <dd>{ens.name || "not set"}</dd>
                     </div>
                     <div>
-                      <dt>Payout key source</dt>
-                      <dd>{ens.effectiveKey ? ens.effectiveKey.source : "none"}</dd>
-                    </div>
-                    <div>
-                      <dt>Provenance record</dt>
-                      <dd>sources, latencies, allowlist, address</dd>
+                      <dt>Passport commitment</dt>
+                      <dd>{shortHash(witness.commitment)}</dd>
                     </div>
                   </dl>
                 </div>
@@ -374,65 +328,54 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
 
               <div className="disclosure-split">
                 <div>
-                  <span className="disclosure-split__label">Published with the request</span>
+                  <span className="disclosure-split__label">Public</span>
                   <ul>
-                    <li>Amount, term and first-loss deposit</li>
-                    <li>The passport commitment (a Poseidon hash)</li>
-                    <li>
-                      The <strong>ENS name</strong> &mdash; the applicant&apos;s public identity, and
-                      the only way a lender can derive a payout address
-                    </li>
-                    <li>
-                      The provenance record — including <strong>the address that was read</strong>, so a
-                      lender can re-read it themselves
-                    </li>
+                    <li>Amount, term, first-loss deposit</li>
+                    <li>Your ENS name</li>
+                    <li>One Poseidon hash of the passport</li>
                   </ul>
                 </div>
                 <div>
-                  <span className="disclosure-split__label">Stays in this tab</span>
+                  <span className="disclosure-split__label">Private, stays here</span>
                   <ul>
-                    <li>The four witness values</li>
-                    <li>Every per-mint holding and USD figure</li>
-                    <li>The salt, without which the commitment cannot be inverted</li>
-                    <li>
-                      The X25519 viewing scalar, and the blinding factor that hides the ENS name
-                      behind the subject commitment
-                    </li>
+                    <li>Every balance and USD figure</li>
+                    <li>The passport values and salt</li>
+                    <li>Your viewing key</li>
                   </ul>
                 </div>
               </div>
 
-              {identityReady ? null : (
+              {ens.ready ? null : (
                 <div className="inline-state inline-state--danger" role="alert">
                   <AlertTriangle size={19} />
                   <div>
-                    <strong>An ENS identity is required before publishing</strong>
+                    <strong>Finish your identity first</strong>
                     <span>
-                      Go back to step 1 and resolve a name. Public signal [3] is
-                      Poseidon2(utf8ToField(ensName), blindingFactor), and the payout address is
-                      derived from that name&apos;s <code>privatecredit.payout-key[501]</code>{" "}
-                      record &mdash; a request with no name is a request no lender can pay.
+                      Lenders pay to a key published under your ENS name. Without it, nobody can
+                      pay you.
                     </span>
                   </div>
+                  <Button variant="secondary" onClick={() => setReviewed(false)}>
+                    Back to identity
+                  </Button>
                 </div>
               )}
 
               <div className="task-card__action">
                 <Button variant="quiet" onClick={() => setReviewed(false)} icon={<ArrowLeft size={15} />}>
-                  Back to the passport
+                  Back
                 </Button>
                 <Button
-                  disabled={busy || !identityReady}
+                  disabled={busy || !ens.ready}
                   icon={<ArrowRight size={16} />}
                   onClick={() =>
                     setConfirm({
-                      title: "Publish the credit request",
+                      title: "List this credit request",
                       detail:
-                        "Writes one row to the shared store. It carries the commitment, the provenance record and the ENS identity — no portfolio value has anywhere to go in the request body.",
-                      confirmLabel: "Publish request",
+                        "Publishes your terms, ENS name and passport commitment to the marketplace. No balance is included.",
+                      confirmLabel: "List request",
                       amount,
-                      successDetail:
-                        "The request is live. Every lender tab will see it on its next long-poll return.",
+                      successDetail: "Your request is live. Lenders can now send you a policy.",
                       run: async () => {
                         await publishRequest({
                           sessionId: session.sessionId,
@@ -442,23 +385,13 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                           passportCommitment: witness.commitment!,
                           provenance: witness.passport!.provenance,
                           ensName: ens.name,
-                          // Only ever sent in the local-demo case, and the
-                          // backend refuses the combination that would let a
-                          // client claim an on-chain source for a key it
-                          // shipped in the body. When ENS holds the record the
-                          // lender reads it from chain and this stays null.
-                          payoutKey:
-                            ens.effectiveKey && ens.effectiveKey.source === "local-demo"
-                              ? bytesToHex0x(ens.effectiveKey.publicKey)
-                              : null,
-                          payoutKeySource: ens.effectiveKey ? ens.effectiveKey.source : null,
                         });
                         refresh();
                       },
                     })
                   }
                 >
-                  Publish request
+                  List on the marketplace
                 </Button>
               </div>
             </Card>
@@ -482,13 +415,11 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                   <CircleDollarSign size={22} />
                 </span>
                 <div>
-                  <span className="section-label">Step 5 of 6</span>
-                  <h2>{offers.length === 1 ? "One funded offer" : "Compare the funded offers"}</h2>
-                  <p>
-                    {offers.length === 1
-                      ? "A single lender verified the receipt and funded. That is the whole market right now — nothing here is padded with invented competitors."
-                      : "Every row below is a real offer another session created after verifying the receipt."}
-                  </p>
+                  <span className="section-label">Step 5 · Offers</span>
+                  <h2>
+                    {offers.length === 1 ? "One offer on your listing" : `${offers.length} offers on your listing`}
+                  </h2>
+                  <p>Each lender verified your proof before funding. Accept one to create the loan.</p>
                 </div>
               </div>
 
@@ -503,10 +434,10 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                   setConfirm({
                     title: `Accept ${offer.lenderLabel}`,
                     detail:
-                      "Accepting creates the loan row on the server. Nothing is signed and no funds move — settlement would land with the Solana program, which is not implemented.",
+                      "Creates the loan. The lender then settles it on Solana and the transaction signatures show up here.",
                     confirmLabel: "Accept offer",
                     amount: request.amount,
-                    successDetail: "Offer accepted and the loan row exists.",
+                    successDetail: "Offer accepted. The loan exists.",
                     run: async () => {
                       await acceptOffer(offer.id, session.sessionId);
                       refresh();
@@ -526,16 +457,24 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                   <Link2 size={22} />
                 </span>
                 <div>
-                  <span className="section-label">Step 6 of 6</span>
-                  <h2>Manage the loan</h2>
-                  <p>
-                    Each transition below is a POST to the backend that changes the shared row. The lender
-                    tab sees the same change.
-                  </p>
+                  <span className="section-label">Step 6 · Loan</span>
+                  <h2>Your loan</h2>
+                  <p>Draw, repay, and check the on-chain settlement without asking the lender.</p>
                 </div>
               </div>
 
               <PayoutRecovery requestId={loan.requestId} payouts={payouts} />
+
+              <SettlementPanel
+                role="borrower"
+                sessionId={session.sessionId}
+                requestId={loan.requestId}
+                offerId={loan.offerId}
+                proofId={null}
+                payoutId={null}
+                settlement={settlement}
+                onChanged={refresh}
+              />
 
               <LoanLifecycle
                 loan={loan}
@@ -545,7 +484,7 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                 onDraw={() =>
                   setConfirm({
                     title: "Draw the credit line",
-                    detail: "Moves the loan row to `active` on the server.",
+                    detail: "Marks the loan active on the marketplace.",
                     confirmLabel: "Draw",
                     amount: loan.principal,
                     successDetail: "The loan is active.",
@@ -558,7 +497,7 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                 onRepay={() =>
                   setConfirm({
                     title: "Repay the loan",
-                    detail: "Moves the loan row to `repaid` on the server.",
+                    detail: "Marks the loan repaid on the marketplace.",
                     confirmLabel: "Repay",
                     amount: Math.round(
                       getTotalRepayment(loan.principal, loan.apr, loan.termDays, loan.fee),
@@ -590,27 +529,14 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
 }
 
 /**
- * `ProverProvider` is mounted HERE, at the top of the applicant workspace and
- * outside anything that re-renders on protocol state, so exactly one Groth16
- * prover worker exists and it starts fetching its 4.6 MB of artifacts the
- * moment this chunk loads — long before a policy challenge arrives. A worker
- * created lazily at proving time would add 650-750 ms of startup to the first
- * proof, on top of the proof itself.
- *
- * It sits inside the lazy-loaded borrower chunk, so the prover, like the
- * witness, is absent from the lender bundle by construction.
+ * `ProverProvider` sits at the top of the borrower workspace so exactly one
+ * Groth16 prover worker exists and starts fetching its artifacts the moment
+ * this chunk loads, long before a policy challenge arrives.
  */
 export function BorrowerView({ onOpenLender }: { onOpenLender: () => void }) {
   return (
     <ProverProvider>
       <WitnessProvider>
-        {/*
-          The ENS identity store holds the X25519 viewing scalar - the second
-          private value in this app, and the one that recovers every one-time
-          payout address. Like the witness it is mounted inside the lazy
-          borrower chunk, so it is absent from the lender bundle by
-          construction rather than by convention.
-        */}
         <EnsIdentityProvider>
           <BorrowerWorkspace onOpenLender={onOpenLender} />
         </EnsIdentityProvider>

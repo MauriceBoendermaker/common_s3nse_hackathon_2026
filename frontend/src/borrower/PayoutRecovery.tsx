@@ -26,12 +26,11 @@
  * thing; hiding it behind a "Sweep" button that does nothing is not.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { AlertTriangle, Check, Coins, KeyRound, X } from "lucide-react";
 
 import { Button, StatusPill } from "../components/ui";
 import {
-  PAYOUT_KEY_SIGN_MESSAGE,
   hexToBytesStrict,
   recoverPayoutKeypair,
   solanaAddressFromSecretKey,
@@ -84,7 +83,6 @@ function recover(
 
 export function PayoutRecovery({ requestId, payouts }: PayoutRecoveryProps) {
   const ens = useEnsIdentity();
-  const [signature, setSignature] = useState("");
   const viewingPrivateKey = ens.viewing?.privateKey ?? null;
 
   const rows = useMemo(
@@ -115,51 +113,27 @@ export function PayoutRecovery({ requestId, payouts }: PayoutRecoveryProps) {
 
       {payouts.length === 0 ? (
         <p className="provenance-note">
-          The capital provider has not derived a payout address for this request yet. It happens on
-          their side, from the X25519 key in this identity&apos;s{" "}
-          <code>privatecredit.payout-key[501]</code> record — this tab cannot make one appear.
+          The lender has not derived a payout address yet. It happens on their side, from the key
+          published under your ENS name.
         </p>
       ) : !viewingPrivateKey ? (
-        <>
-          <div className="inline-state inline-state--danger" role="alert">
-            <AlertTriangle size={19} />
-            <div>
-              <strong>This tab holds no viewing key</strong>
-              <span>
-                Without the X25519 scalar there is nothing to recompute the shared secret with. The
-                key is never stored, so a reload loses it — and losing it costs nothing, because it
-                is derived, not generated. Sign the message below with the same wallet and paste the
-                result: RFC 6979 makes that signature deterministic, so the identical key comes back.
-              </span>
-            </div>
+        <div className="inline-state inline-state--danger" role="alert">
+          <AlertTriangle size={19} />
+          <div>
+            <strong>This tab holds no viewing key</strong>
+            <span>
+              The key is derived from your wallet signature and never stored, so a reload loses
+              it. Sign again with the same wallet to recover every address below.
+            </span>
           </div>
-          <pre className="sign-message">{PAYOUT_KEY_SIGN_MESSAGE}</pre>
-          <div className="ens-panel">
-            <label className="form-field">
-              <span>personal_sign output (65 bytes of hex)</span>
-              <input
-                className="text-input"
-                type="text"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="0x…"
-                value={signature}
-                onChange={(event) => setSignature(event.target.value)}
-              />
-            </label>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={signature.trim().length === 0}
-              onClick={() => ens.deriveFromSignature(signature.trim())}
-            >
-              Re-derive the viewing key
-            </Button>
-          </div>
-          {ens.viewingError ? (
-            <p className="provenance-note provenance-note--flag">{ens.viewingError}</p>
-          ) : null}
-        </>
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={() => void (ens.wallet ? ens.signViewingKey() : ens.connectWallet())}
+          >
+            {ens.wallet ? "Sign to re-derive" : "Connect wallet"}
+          </Button>
+        </div>
       ) : (
         <ul className="payout-list">
           {rows.map(({ announcement, recovery }) => (
@@ -248,20 +222,10 @@ export function PayoutRecovery({ requestId, payouts }: PayoutRecoveryProps) {
         </ul>
       )}
 
-      <div className="inline-state" role="note">
-        <Coins size={19} />
-        <div>
-          <strong>No funds move, and the address is not yet sweepable</strong>
-          <span>
-            Deriving an address is not funding one. There is no Solana program, no SPL escrow and no
-            transfer in this repository — that is workstream E and it is not implemented. Every
-            address above holds zero lamports and has no associated token account, so even with the
-            program deployed it could not be swept until somebody pays roughly 0.002 SOL of ATA rent
-            plus a transaction fee into it. That funding transaction is itself a link an observer can
-            follow, which is a design problem worth naming rather than discovering later.
-          </span>
-        </div>
-      </div>
+      <p className="provenance-note">
+        <Coins size={13} /> Deriving an address does not fund it. Settlement creates the token
+        account, moves the escrow into it and adds 0.002 SOL so you can sweep.
+      </p>
     </section>
   );
 }

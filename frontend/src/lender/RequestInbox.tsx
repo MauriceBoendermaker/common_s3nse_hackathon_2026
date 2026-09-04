@@ -43,24 +43,24 @@ export function RequestInbox({ requests, selectedId, onSelect, now }: RequestInb
         <span className="task-icon">
           <Inbox size={22} />
         </span>
-        <span className="section-label">Request inbox</span>
-        <h2>No open credit requests</h2>
+        <span className="section-label">Marketplace</span>
+        <h2>No credit requests listed</h2>
         <p>
-          Open the applicant workspace in a <strong>second browser tab or window</strong> and publish a
-          request. This page will update by itself — it is holding a long-poll open against{" "}
-          <code>GET /api/state</code>, not refreshing on a timer.
+          This page updates the moment a borrower lists one. Open the borrower side in another
+          window to list a request yourself.
         </p>
-        <small>
-          The two tabs hold two different session ids and talk to each other only through the API. That
-          separation is the demo: this tab has no object, no import and no code path that could read the
-          other tab&apos;s portfolio.
-        </small>
       </Card>
     );
   }
 
   return (
     <div className="request-inbox">
+      <div className="market-list-header">
+        <div>
+          <span className="section-label">Marketplace</span>
+          <h2>Requests seeking capital</h2>
+        </div>
+      </div>
       {requests.map((request) => {
         const selected = request.id === selectedId;
         return (
@@ -70,7 +70,7 @@ export function RequestInbox({ requests, selectedId, onSelect, now }: RequestInb
           >
             <div className="request-inbox__summary">
               <div>
-                <span className="section-label">{request.borrowerLabel}</span>
+                <span className="section-label">{request.ensName}</span>
                 <strong>{formatUsd(request.amount)}</strong>
                 <small>
                   {request.termDays} days · {formatUsd(request.collateral)} first-loss · published{" "}
@@ -86,12 +86,12 @@ export function RequestInbox({ requests, selectedId, onSelect, now }: RequestInb
                 <dd className="mono-value">{shortHash(request.passportCommitment)}</dd>
               </div>
               <div>
-                <dt>Portfolio values received</dt>
-                <dd>none</dd>
+                <dt>Borrower</dt>
+                <dd>{request.borrowerLabel}</dd>
               </div>
               <div>
-                <dt>Address read</dt>
-                <dd className="mono-value">{shortHash(request.provenance.address)}</dd>
+                <dt>Portfolio values received</dt>
+                <dd>none</dd>
               </div>
             </dl>
 
@@ -103,7 +103,7 @@ export function RequestInbox({ requests, selectedId, onSelect, now }: RequestInb
                 onClick={() => onSelect(request.id)}
                 icon={<ArrowRight size={15} />}
               >
-                {selected ? "Selected" : "Underwrite this request"}
+                {selected ? "Selected" : "Underwrite"}
               </Button>
             </div>
           </article>

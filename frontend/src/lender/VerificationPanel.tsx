@@ -86,8 +86,8 @@ export function VerificationPanel({
           ZK
         </span>
         <div>
-          <span className="section-label">Step {proof ? 3 : 3} of 5</span>
-          <h2>{proof ? "Verify the receipt" : "Waiting for the applicant's receipt"}</h2>
+          <span className="section-label">Step 3 · Verify</span>
+          <h2>{proof ? "Verify the proof" : "Waiting for the borrower's proof"}</h2>
           <p>
             The challenge is bound to this session&apos;s verifier commitment{" "}
             {shortHash(challenge.verifierCommitment)} and to policy hash {shortHash(challenge.policyHash)}.
@@ -100,8 +100,8 @@ export function VerificationPanel({
 
       <div className="policy-summary">
         <div>
-          <span>Applicant</span>
-          <strong>{request.borrowerLabel}</strong>
+          <span>Borrower</span>
+          <strong>{request.ensName}</strong>
         </div>
         <div>
           <span>Requested</span>
@@ -131,14 +131,11 @@ export function VerificationPanel({
         <div className="waiting-state">
           <span className="waiting-pulse" aria-hidden="true" />
           <div>
-            <strong>Challenge delivered to {request.borrowerLabel}</strong>
-            <span>
-              Raw passport inputs cannot enter this workspace: this bundle does not contain the code that
-              reads them.
-            </span>
+            <strong>Policy delivered to {request.ensName}</strong>
+            <span>They generate the proof in their browser. This updates when it lands.</span>
           </div>
           <Button variant="secondary" onClick={onOpenBorrower} icon={<ArrowRight size={16} />}>
-            Open the applicant workspace
+            Open the borrower side
           </Button>
         </div>
       )}
@@ -162,10 +159,7 @@ export function VerificationPanel({
             <div>
               <span className="section-label">Fund an offer</span>
               <h3>Price the verified request</h3>
-              <small>
-                This creates a real offer row the applicant&apos;s tab will see. There are no simulated
-                competing pools alongside it.
-              </small>
+              <small>The borrower sees this offer next to any competing ones.</small>
             </div>
             <label className="apr-field">
               <span>APR</span>

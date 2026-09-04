@@ -30,7 +30,7 @@ import { AlertTriangle, ArrowRight, Check, FileKey2, LockKeyhole, X } from "luci
 
 import { PrivacyBoundary } from "../components/PrivacyBoundary";
 import { ProofReceipt } from "../components/ProofReceipt";
-import { Button, Card, Spinner, StatusPill } from "../components/ui";
+import { Button, Card, Disclosure, Spinner, StatusPill } from "../components/ui";
 import { ApiError, submitProof } from "../shared/apiClient";
 import { formatCountdown, formatPercent, formatUsd } from "../shared/format";
 import { evaluatePolicy, policyHash as derivePolicyHash, shortHash } from "../shared/policy";
@@ -80,12 +80,12 @@ export function ChallengeResponse({
 
   const generate = async () => {
     if (!challenge || !passport || !salt || !blindingFactor || !witness.commitment) return;
-    if (!ens.name) {
+    // The identity the listing carries is authoritative; the in-memory store
+    // is only a cache of it that a reload may have emptied.
+    const subjectId = request.ensName || ens.name;
+    if (!subjectId) {
       setErrorSource("prover");
-      setError(
-        "no ENS identity on this session. The subject commitment at signal [3] is " +
-          "Poseidon2(utf8ToField(ensName), blindingFactor) — with no name there is nothing to commit to.",
-      );
+      setError("this listing carries no ENS identity, so there is nothing to commit to at signal [3].");
       return;
     }
     setBusy(true);
@@ -110,7 +110,7 @@ export function ChallengeResponse({
         // rather than to who is borrowing, and would make the subject
         // commitment collide with a value already published in plaintext in
         // the provenance strip.
-        subjectId: ens.name,
+        subjectId,
         blindingFactor,
       });
 
@@ -177,23 +177,17 @@ export function ChallengeResponse({
             ZK
           </span>
           <div>
-            <span className="section-label">Step 4 of 6</span>
-            <h2>Waiting for a policy challenge</h2>
-            <p>
-              The request is live in the shared store. A lender has to choose thresholds before there is
-              anything to answer.
-            </p>
+            <span className="section-label">Step 4 · Prove</span>
+            <h2>Waiting for a lender&apos;s policy</h2>
+            <p>A lender picks four thresholds. You answer with a proof, never with the numbers.</p>
           </div>
         </div>
 
         <div className="waiting-state">
           <span className="waiting-pulse" aria-hidden="true" />
           <div>
-            <strong>Request published · {formatUsd(request.amount)}</strong>
-            <span>
-              This panel is not polling on a timer. It is holding a long-poll open against{" "}
-              <code>GET /api/state</code> and will re-render the moment the version moves.
-            </span>
+            <strong>Listed · {formatUsd(request.amount)}</strong>
+            <span>Your request is on the market. This updates the moment a lender sends a policy.</span>
           </div>
           <Button variant="secondary" onClick={onOpenLender} icon={<ArrowRight size={16} />}>
             Open the lender workspace
@@ -218,12 +212,9 @@ export function ChallengeResponse({
           ZK
         </span>
         <div>
-          <span className="section-label">Step 4 of 6</span>
-          <h2>Answer the policy challenge</h2>
-          <p>
-            The proof is bound to this policy hash and this verifier commitment, so it cannot be replayed
-            for different terms or handed to a different lender.
-          </p>
+          <span className="section-label">Step 4 · Prove</span>
+          <h2>Prove you meet the policy</h2>
+          <p>The proof is bound to this policy and this lender. It cannot be reused elsewhere.</p>
         </div>
       </div>
 
@@ -261,16 +252,27 @@ export function ChallengeResponse({
         <span>
           <strong>
             {hashMatches
-              ? "Policy hash recomputed locally and matches"
-              : "Policy hash does NOT match the thresholds shown"}
+              ? "The thresholds shown are the thresholds you would be proving against"
+              : "WARNING: the thresholds shown do not match the policy hash"}
           </strong>
           <small>
-            Poseidon over the four thresholds, computed in this tab: <code>{shortHash(localHash)}</code>. The
-            circuit recomputes it a third time and constrains the proof to it, and the backend recomputes it
-            a fourth time from the stored policy — so neither client is trusted for it.
+            Recomputed in this tab, so the lender cannot show you one policy and hash another.{" "}
+            <code>{shortHash(localHash)}</code>
           </small>
         </span>
       </div>
+
+      <Disclosure summary="Who recomputes this hash, and why four times">
+        <p className="provenance-note">
+          <code>Poseidon4(minAssets, minCollateralQuality, minHistoryMonths, screenExposure)</code>,
+          computed independently in four places: the lender&apos;s client when it publishes the
+          challenge, this tab (the value above), the circuit — which constrains the proof to it, so
+          a proof cannot be about a different policy — and the backend, from its own stored copy.
+          The settlement program then computes it a fifth time from the account it stored on chain,
+          and refuses the transaction if public signal [2] disagrees. No party in that chain is
+          trusted to have done it honestly, because each one checks the last.
+        </p>
+      </Disclosure>
 
       <ProverStatusRow prover={prover} />
 
@@ -331,7 +333,7 @@ export function ChallengeResponse({
               {proveMs === null ? null : ` Proved in ${proveMs} ms.`}
             </span>
             <Button variant="secondary" onClick={onOpenLender} icon={<ArrowRight size={16} />}>
-              Open the lender workspace
+              Open the lender side
             </Button>
           </>
         ) : (
@@ -402,13 +404,21 @@ function ProverStatusRow({ prover }: { prover: ReturnType<typeof useProver> }) {
   const { ms, fetchMs, proveMs, wasmBytes, zkeyBytes } = prover.warmup;
 
   return (
-    <p className="provenance-note">
-      Prover ready in {ms} ms — {mb(wasmBytes)} witness calculator + {mb(zkeyBytes)} proving key fetched in{" "}
-      {fetchMs} ms
-      {proveMs === null ? "" : `, warmup proof in ${proveMs} ms`}. One worker, created when this workspace
-      mounted and reused for every proof. The proving key comes from a{" "}
-      <strong>development trusted setup</strong>: whoever ran the ceremony could forge proofs. That is a real
-      caveat, not a formality — see <code>zk/build/ceremony-transcript.md</code>.
-    </p>
+    <Disclosure
+      summary={`Prover ready in this tab — ${mb(wasmBytes + zkeyBytes)} of artifacts loaded`}
+      count={`${ms} ms`}
+    >
+      <p className="provenance-note">
+        {mb(wasmBytes)} witness calculator + {mb(zkeyBytes)} proving key, fetched in {fetchMs} ms
+        {proveMs === null ? "" : `, then a throwaway warmup proof in ${proveMs} ms`}. One Web Worker,
+        created when this workspace mounted and reused for every proof — a fresh worker per proof
+        would cost 650–750 ms of pure startup before any proving happened.
+      </p>
+      <p className="provenance-note">
+        The proving key comes from a <strong>development trusted setup</strong>: whoever ran the
+        ceremony could forge proofs that verify, including on chain. That is a real caveat, not a
+        formality — the transcript is at <code>zk/build/ceremony-transcript.md</code>.
+      </p>
+    </Disclosure>
   );
 }

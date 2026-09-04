@@ -38,11 +38,9 @@ export function PassportReview({
           <Database size={22} />
         </span>
         <div>
-          <span className="section-label">Step 2 of 6</span>
-          <h2>Review the passport</h2>
-          <p>
-            Four values, computed from live balances over a committed mint allowlist. They stay in this tab.
-          </p>
+          <span className="section-label">Step 2 · Passport</span>
+          <h2>Your private passport</h2>
+          <p>Four values from your live balances. They stay in this tab; only their hash is listed.</p>
         </div>
       </div>
 
@@ -164,10 +162,10 @@ export function PassportReview({
 
       <div className="task-card__action">
         <Button variant="quiet" onClick={onBack} icon={<ArrowLeft size={15} />}>
-          Read a different address
+          Read again
         </Button>
         <Button onClick={onContinue} icon={<ArrowRight size={16} />}>
-          Set the loan terms
+          Continue to terms
         </Button>
       </div>
     </Card>

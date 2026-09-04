@@ -31,12 +31,7 @@ import { AlertTriangle, EyeOff, RefreshCw, Send, ShieldAlert } from "lucide-reac
 import { Button, Spinner, StatusPill } from "../components/ui";
 import { ApiError, announcePayout } from "../shared/apiClient";
 import { readPayoutRecord } from "../shared/ensClient";
-import {
-  PAYOUT_RECORD_KEY,
-  bytesToHex0x,
-  derivePayoutAddress,
-  hexToBytesStrict,
-} from "../shared/ensPayout";
+import { PAYOUT_RECORD_KEY, bytesToHex0x, derivePayoutAddress } from "../shared/ensPayout";
 import type { CreditRequest, Offer, PayoutAnnouncement } from "../shared/protocol-types";
 
 type PayoutDerivationProps = {
@@ -53,7 +48,7 @@ type Evidence = {
   value: string | null;
   blockNumber: string | null;
   resolver: string | null;
-  source: "ens-text-record" | "local-demo";
+  source: "ens-text-record";
   note: string;
 };
 
@@ -82,48 +77,28 @@ export function PayoutDerivation({
     setError(null);
 
     try {
-      /**
-       * The real path first, always. Only if the chain read produces no usable
-       * key does the demo fallback come into play, and the announcement then
-       * records `local-demo` so nobody downstream can mistake the two.
-       */
+      // The only path: read the key out of the ENS record. No record, no payment.
       const read = await readPayoutRecord(ensName);
 
-      let recipientPublicKey: Uint8Array;
-      let next: Evidence;
-
-      if (read.ok && read.publicKey) {
-        recipientPublicKey = read.publicKey;
-        next = {
-          value: read.value,
-          blockNumber: String(read.blockNumber),
-          resolver: read.resolver,
-          source: "ens-text-record",
-          note: `Read from ${PAYOUT_RECORD_KEY} on ${ensName} at block ${String(read.blockNumber)}.`,
-        };
-      } else if (request.payoutKey && request.payoutKeySource === "local-demo") {
-        recipientPublicKey = hexToBytesStrict(request.payoutKey, "payoutKey");
-        next = {
-          value: read.ok ? read.value : null,
-          blockNumber: read.ok ? String(read.blockNumber) : null,
-          resolver: read.ok ? read.resolver : null,
-          source: "local-demo",
-          note: read.ok
-            ? `${ensName} has no usable ${PAYOUT_RECORD_KEY} record${
-                read.decodeError ? ` (${read.decodeError})` : ""
-              }. Falling back to the key the applicant shipped with the request.`
-            : `The ENS read failed: ${read.error}. Falling back to the key the applicant shipped with the request.`,
-        };
-      } else {
+      if (!read.ok || !read.publicKey) {
         setError(
           read.ok
             ? `${ensName} has no usable ${PAYOUT_RECORD_KEY} record${
                 read.decodeError ? ` — ${read.decodeError}` : ""
-              }, and the request carries no demo key either. There is no key to pay to.`
+              }. There is no key to pay to until the borrower publishes one.`
             : `Could not read ${ensName} on Sepolia: ${read.error}`,
         );
         return;
       }
+
+      const recipientPublicKey: Uint8Array = read.publicKey;
+      const next: Evidence = {
+        value: read.value,
+        blockNumber: String(read.blockNumber),
+        resolver: read.resolver,
+        source: "ens-text-record",
+        note: `Read from ${PAYOUT_RECORD_KEY} on ${ensName} at block ${String(read.blockNumber)}.`,
+      };
 
       // A fresh ephemeral scalar per call. `derivePayoutAddress` draws one from
       // the platform CSPRNG unless a test hands it one; reusing one across two
@@ -162,7 +137,7 @@ export function PayoutDerivation({
     } finally {
       setBusy(false);
     }
-  }, [ensName, offer.id, onChanged, request.id, request.payoutKey, request.payoutKeySource, sessionId]);
+  }, [ensName, offer.id, onChanged, request.id, sessionId]);
 
   /**
    * Derive once, automatically, the first time this offer has no payout
@@ -204,11 +179,9 @@ export function PayoutDerivation({
         </div>
       ) : (
         <p className="provenance-note">
-          Resolving <strong>{ensName}</strong> is the only way to obtain the address below. The
-          protocol has no field carrying the applicant&apos;s Solana address, and the addresses in
-          this list are unlinkable to it and to each other: without the applicant&apos;s X25519
-          viewing scalar, <code>R</code> is an unrelated curve point and the view tag is one byte of
-          a hash only the two parties can compute.
+          Resolving <strong>{ensName}</strong> is the only way to obtain the address below. Each
+          draw gets a fresh address that nobody without the borrower&apos;s viewing key can link to
+          the name or to another draw.
         </p>
       )}
 
@@ -237,19 +210,6 @@ export function PayoutDerivation({
         </dl>
       ) : null}
 
-      {evidence?.source === "local-demo" ? (
-        <div className="inline-state" role="note">
-          <ShieldAlert size={19} />
-          <div>
-            <strong>Derived against a demo key, not an ENS record</strong>
-            <span>
-              {evidence.note} Nothing on chain attests that key, so this particular derivation proves
-              the mechanism rather than the trust model. In production this fallback does not exist:
-              the lender resolves the name or does not pay.
-            </span>
-          </div>
-        </div>
-      ) : null}
 
       {error ? (
         <div className="inline-state inline-state--danger" role="alert">

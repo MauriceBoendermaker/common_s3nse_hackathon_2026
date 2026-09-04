@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 
 const classNames = (...values: Array<string | false | undefined>) =>
@@ -65,4 +66,70 @@ export function BrandMark() {
 
 export function Spinner() {
   return <span className="spinner" aria-hidden="true" />;
+}
+
+/**
+ * A collapsed drawer for the evidence behind a claim.
+ *
+ * This app has an unusual amount of load-bearing detail: raw `text(node, key)`
+ * return values, per-mint holdings, the exact bindings the verifier re-checked,
+ * seven public signals. All of it is the answer to "how do I know this isn't
+ * hard-coded?", so none of it can be deleted — but rendered flat it buries the
+ * one sentence that actually says what happened, and a reader who has to skim
+ * paragraphs of cryptography to find the button stops reading.
+ *
+ * So: the claim stays in the open, the proof of the claim goes in here. Native
+ * `<details>` on purpose — it is keyboard-accessible, findable by the browser's
+ * in-page search in modern engines, and needs no state.
+ */
+export function Disclosure({
+  summary,
+  count,
+  children,
+  defaultOpen = false,
+  className,
+}: {
+  summary: ReactNode;
+  /** Optional right-aligned hint, e.g. "4 reads" or "7 signals". */
+  count?: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  className?: string;
+}) {
+  return (
+    <details className={classNames("disclosure", className)} open={defaultOpen}>
+      <summary className="disclosure__summary">
+        <ChevronRight size={14} className="disclosure__chevron" aria-hidden="true" />
+        <span className="disclosure__label">{summary}</span>
+        {count ? <span className="disclosure__count">{count}</span> : null}
+      </summary>
+      <div className="disclosure__body">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * The one-line answer at the top of a panel: what state this thing is in, in
+ * plain language, before any of the machinery that produced it.
+ */
+export function Verdict({
+  tone = "neutral",
+  icon,
+  title,
+  children,
+}: {
+  tone?: "neutral" | "success" | "warning" | "danger" | "pending";
+  icon?: ReactNode;
+  title: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div className={classNames("verdict", `verdict--${tone}`)}>
+      {icon ? <span className="verdict__icon">{icon}</span> : null}
+      <div className="verdict__text">
+        <strong>{title}</strong>
+        {children ? <span>{children}</span> : null}
+      </div>
+    </div>
+  );
 }

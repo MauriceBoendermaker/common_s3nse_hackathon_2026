@@ -1,0 +1,1325 @@
+{
+  "address": "69qmzHFdDMP8hGFNcJcKpduGbdjEnAhdrvLrLaydvvRc",
+  "metadata": {
+    "name": "private_credit",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Private Credit - on-chain Groth16 underwriting verification and SPL escrow settlement"
+  },
+  "instructions": [
+    {
+      "name": "draw",
+      "docs": [
+        "The borrower marks the line drawn. Kept as a distinct on-chain",
+        "transition rather than folded into settlement because the interest",
+        "clock starts here and the cluster clock — not a server timestamp — is",
+        "what says when."
+      ],
+      "discriminator": [
+        61,
+        40,
+        62,
+        184,
+        31,
+        176,
+        24,
+        130
+      ],
+      "accounts": [
+        {
+          "name": "loan",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  97,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "loan.request_id",
+                "account": "Loan"
+              }
+            ]
+          }
+        },
+        {
+          "name": "borrower",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "fund_escrow",
+      "docs": [
+        "The lender moves real tokens into the escrow vault for this request.",
+        "",
+        "Funding happens before the proof is presented, on purpose: an offer",
+        "that is not funded is a quote, and this protocol only ever shows the",
+        "borrower offers whose money is already sitting in a vault the lender no",
+        "longer controls unilaterally."
+      ],
+      "discriminator": [
+        155,
+        18,
+        218,
+        141,
+        182,
+        213,
+        69,
+        201
+      ],
+      "accounts": [
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.request_id",
+                "account": "CreditRequestAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.request_id",
+                "account": "CreditRequestAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "lender_tokens",
+          "writable": true
+        },
+        {
+          "name": "lender",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "One-time bootstrap. Records who may administer the program and the",
+        "SHA-256 of the verifying key bytes this binary was built against, so a",
+        "deployed program can be matched to a specific `zk/build/` output",
+        "without reading the ELF."
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "vk_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "present_and_fund",
+      "docs": [
+        "The core instruction. Verifies the credential and settles in one",
+        "atomic step, so there is no window in which a proof is \"accepted\" but",
+        "the money has not moved (or the reverse).",
+        "`proof` and `raw_signals` are `Vec<u8>` rather than the fixed arrays the",
+        "shapes suggest, and that is not a style choice.",
+        "",
+        "An SBF stack frame is 4 KB. Anchor deserialises instruction arguments",
+        "into locals and then MOVES them into the handler frame, so declaring",
+        "`[u8; 64] + [u8; 128] + [u8; 64] + [[u8; 32]; 7]` by value put ~480",
+        "bytes through several frames at once and the program died with",
+        "\"Access violation in stack frame 3\" after 3,427 compute units — before",
+        "a single line of this function ran. A `Vec` lives on the heap; the",
+        "fixed arrays are rebuilt behind a `Box` below."
+      ],
+      "discriminator": [
+        125,
+        23,
+        50,
+        59,
+        27,
+        89,
+        236,
+        28
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "policy",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "policy.policy_hash",
+                "account": "Policy"
+              },
+              {
+                "kind": "account",
+                "path": "policy.verifier_commitment",
+                "account": "Policy"
+              }
+            ]
+          }
+        },
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.request_id",
+                "account": "CreditRequestAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "loan",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  97,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.request_id",
+                "account": "CreditRequestAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "nullifier",
+          "docs": [
+            "The replay guard. `init` here is the enforcement: present the same",
+            "receipt twice and the runtime fails the transaction with \"account",
+            "already in use\" before a single line of this program runs."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  117,
+                  108,
+                  108,
+                  105,
+                  102,
+                  105,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "nullifier_seed"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "request.request_id",
+                "account": "CreditRequestAccount"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payout_tokens",
+          "docs": [
+            "The token account of the one-time payout address. Created by the payer",
+            "in a preceding instruction; constrained here to actually belong to the",
+            "address recorded on the loan."
+          ],
+          "writable": true
+        },
+        {
+          "name": "payout",
+          "docs": [
+            "ENS payout key. The program never dereferences it; it only credits it",
+            "with lamports so the recipient can afford to sweep."
+          ],
+          "writable": true
+        },
+        {
+          "name": "lender",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "nullifier_seed",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "proof",
+          "type": "bytes"
+        },
+        {
+          "name": "raw_signals",
+          "type": "bytes"
+        },
+        {
+          "name": "payout_address",
+          "type": "pubkey"
+        },
+        {
+          "name": "ephemeral_pubkey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "view_tag",
+          "type": "u8"
+        },
+        {
+          "name": "apr_bps",
+          "type": "u16"
+        },
+        {
+          "name": "fee_bps",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "publish_policy",
+      "docs": [
+        "A lender publishes the underwriting policy it will accept proofs",
+        "against.",
+        "",
+        "`policy_hash` is passed in **only because a PDA seed has to be known",
+        "before the instruction runs**. It is not trusted: the program",
+        "immediately recomputes Poseidon over the four thresholds it just stored",
+        "and rejects a mismatch. So the account can only ever exist at the",
+        "address its own contents hash to.",
+        "",
+        "The account is keyed by (policy hash, verifier commitment), not by the",
+        "policy hash alone. Two lenders publishing identical thresholds is",
+        "ordinary — a policy is four numbers, and the space of sensible numbers",
+        "is small — but they are different verifiers, and public signal [6]",
+        "binds a receipt to exactly one of them. Keying on the hash alone made",
+        "the first lender's account swallow the second's, and every proof the",
+        "second lender received was then rejected as \"issued to a different",
+        "verifier\". That is the program being right about the wrong account."
+      ],
+      "discriminator": [
+        48,
+        1,
+        101,
+        147,
+        0,
+        239,
+        136,
+        36
+      ],
+      "accounts": [
+        {
+          "name": "policy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  105,
+                  99,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "policy_hash"
+              },
+              {
+                "kind": "arg",
+                "path": "verifier_commitment"
+              }
+            ]
+          }
+        },
+        {
+          "name": "lender",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "policy_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "verifier_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "min_assets",
+          "type": "u64"
+        },
+        {
+          "name": "min_collateral_quality",
+          "type": "u8"
+        },
+        {
+          "name": "min_history_months",
+          "type": "u16"
+        },
+        {
+          "name": "screen_exposure",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "publish_request",
+      "docs": [
+        "The borrower posts the public half of a credit request: the terms, and",
+        "the commitments they are bound to for every proof that follows.",
+        "",
+        "The passport commitment is fixed HERE, before any lender publishes a",
+        "policy challenge. That ordering is the difference between a mechanism",
+        "and theatre — reverse it and the borrower simply picks numbers that",
+        "satisfy the policy they were just handed."
+      ],
+      "discriminator": [
+        42,
+        127,
+        34,
+        25,
+        155,
+        225,
+        242,
+        93
+      ],
+      "accounts": [
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "request_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "request_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "borrower",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "request_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "collateral",
+          "type": "u64"
+        },
+        {
+          "name": "term_days",
+          "type": "u16"
+        },
+        {
+          "name": "passport_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "subject_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "repay",
+      "docs": [
+        "Principal plus interest and fee returns to the lender's token account.",
+        "The amount is checked against what the program itself computes from the",
+        "stored loan and the elapsed cluster time."
+      ],
+      "discriminator": [
+        234,
+        103,
+        67,
+        82,
+        208,
+        234,
+        219,
+        166
+      ],
+      "accounts": [
+        {
+          "name": "loan",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  97,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "loan.request_id",
+                "account": "Loan"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer_tokens",
+          "writable": true
+        },
+        {
+          "name": "lender_tokens",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "CreditRequestAccount",
+      "discriminator": [
+        238,
+        171,
+        70,
+        118,
+        254,
+        226,
+        135,
+        127
+      ]
+    },
+    {
+      "name": "Loan",
+      "discriminator": [
+        20,
+        195,
+        70,
+        117,
+        165,
+        227,
+        182,
+        1
+      ]
+    },
+    {
+      "name": "NullifierAccount",
+      "discriminator": [
+        250,
+        31,
+        238,
+        177,
+        213,
+        98,
+        48,
+        172
+      ]
+    },
+    {
+      "name": "Policy",
+      "discriminator": [
+        222,
+        135,
+        7,
+        163,
+        235,
+        177,
+        33,
+        68
+      ]
+    },
+    {
+      "name": "ProgramConfig",
+      "discriminator": [
+        196,
+        210,
+        90,
+        231,
+        144,
+        149,
+        140,
+        63
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "LoanSettled",
+      "discriminator": [
+        103,
+        190,
+        95,
+        205,
+        122,
+        73,
+        234,
+        87
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "ProofMalformed",
+      "msg": "Groth16 proof is structurally malformed"
+    },
+    {
+      "code": 6001,
+      "name": "ProofInvalid",
+      "msg": "Groth16 proof failed verification on-chain"
+    },
+    {
+      "code": 6002,
+      "name": "PassportCommitmentMismatch",
+      "msg": "Public signal [0] does not match the passport commitment on the request"
+    },
+    {
+      "code": 6003,
+      "name": "SubjectCommitmentMismatch",
+      "msg": "Public signal [3] does not match the subject commitment on the request"
+    },
+    {
+      "code": 6004,
+      "name": "PolicyHashMismatch",
+      "msg": "Public signal [2] does not match Poseidon over the stored policy"
+    },
+    {
+      "code": 6005,
+      "name": "VerifierMismatch",
+      "msg": "Public signal [6] was issued to a different verifier"
+    },
+    {
+      "code": 6006,
+      "name": "NotEligible",
+      "msg": "The proof asserts the applicant is not eligible under this policy"
+    },
+    {
+      "code": 6007,
+      "name": "ProofExpired",
+      "msg": "The receipt expired before it reached the chain"
+    },
+    {
+      "code": 6008,
+      "name": "SignalTooLarge",
+      "msg": "A public signal is larger than this field can decode"
+    },
+    {
+      "code": 6009,
+      "name": "NullifierSeedMismatch",
+      "msg": "The nullifier PDA seed does not equal public signal [5]"
+    },
+    {
+      "code": 6010,
+      "name": "SignalCountMismatch",
+      "msg": "Wrong number of public signals for this circuit"
+    },
+    {
+      "code": 6011,
+      "name": "PoseidonFailed",
+      "msg": "Poseidon syscall failed"
+    },
+    {
+      "code": 6012,
+      "name": "QualityOutOfRange",
+      "msg": "Collateral quality is a percentage and must be 0-100"
+    },
+    {
+      "code": 6013,
+      "name": "AmountZero",
+      "msg": "Amount must be greater than zero"
+    },
+    {
+      "code": 6014,
+      "name": "TermZero",
+      "msg": "Term must be at least one day"
+    },
+    {
+      "code": 6015,
+      "name": "VaultEmpty",
+      "msg": "The escrow vault holds nothing to disburse"
+    },
+    {
+      "code": 6016,
+      "name": "PayoutOwnerMismatch",
+      "msg": "The payout token account is not owned by the payout address"
+    },
+    {
+      "code": 6017,
+      "name": "PayoutMintMismatch",
+      "msg": "The payout token account holds the wrong mint"
+    },
+    {
+      "code": 6018,
+      "name": "NotBorrower",
+      "msg": "Only the borrower on this loan may draw it"
+    },
+    {
+      "code": 6019,
+      "name": "LoanNotDrawable",
+      "msg": "The loan is not in a drawable state"
+    },
+    {
+      "code": 6020,
+      "name": "LoanAlreadyRepaid",
+      "msg": "The loan is already repaid"
+    },
+    {
+      "code": 6021,
+      "name": "RepaymentShort",
+      "msg": "The repayment is short of principal, interest and fee"
+    }
+  ],
+  "types": [
+    {
+      "name": "CreditRequestAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "borrower",
+            "type": "pubkey"
+          },
+          {
+            "name": "funded_by",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "passport_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "subject_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "collateral",
+            "type": "u64"
+          },
+          {
+            "name": "term_days",
+            "type": "u16"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Loan",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "request",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "policy",
+            "type": "pubkey"
+          },
+          {
+            "name": "lender",
+            "type": "pubkey"
+          },
+          {
+            "name": "borrower",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "payout",
+            "docs": [
+              "The one-time address this draw was paid to. Derived off-chain from the",
+              "borrower's ENS payout key; unlinkable to any previous draw."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "ephemeral_pubkey",
+            "docs": [
+              "`R = r·G`, the lender's ephemeral X25519 public key. Published so the",
+              "borrower can recompute the shared secret and recover the payout key."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nullifier",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "passport_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "subject_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "principal",
+            "type": "u64"
+          },
+          {
+            "name": "repaid_amount",
+            "type": "u64"
+          },
+          {
+            "name": "apr_bps",
+            "type": "u16"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "term_days",
+            "type": "u16"
+          },
+          {
+            "name": "view_tag",
+            "docs": [
+              "One byte of the shared secret. A scan filter that lets the borrower",
+              "discard ~255/256 of foreign announcements cheaply. Never a security",
+              "boundary."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "funded_at",
+            "type": "i64"
+          },
+          {
+            "name": "drawn_at",
+            "type": "i64"
+          },
+          {
+            "name": "due_at",
+            "type": "i64"
+          },
+          {
+            "name": "repaid_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LoanSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "request",
+            "type": "pubkey"
+          },
+          {
+            "name": "loan",
+            "type": "pubkey"
+          },
+          {
+            "name": "payout",
+            "type": "pubkey"
+          },
+          {
+            "name": "principal",
+            "type": "u64"
+          },
+          {
+            "name": "nullifier",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "view_tag",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NullifierAccount",
+      "docs": [
+        "The replay guard, and the most honest thing in the program: it holds almost",
+        "no data, because its *existence* is the whole mechanism."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "value",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "request",
+            "type": "pubkey"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Policy",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lender",
+            "type": "pubkey"
+          },
+          {
+            "name": "min_assets",
+            "type": "u64"
+          },
+          {
+            "name": "min_collateral_quality",
+            "type": "u8"
+          },
+          {
+            "name": "min_history_months",
+            "type": "u16"
+          },
+          {
+            "name": "screen_exposure",
+            "type": "bool"
+          },
+          {
+            "name": "policy_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "verifier_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProgramConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "vk_hash",
+            "docs": [
+              "SHA-256 over `zk/build/verification_key.json`. Ties this deployment to",
+              "one circuit build without anyone having to disassemble the ELF."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "loans_settled",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,171 +1,269 @@
 /**
- * Step 1, second half — the ENS identity.
+ * Step 1 — the identity. BORROWER-ONLY.
  *
- * BORROWER-ONLY. This panel used to be a placeholder that said "Workstream D ·
- * pending" and rendered three planned-role rows. It now performs four real
- * Sepolia reads and prints what each one returned, including the empty string.
- *
- * WHY EVERY VALUE IS SHOWN RAW. The ENS manager app does not display a custom
- * text-record key like `privatecredit.payout-key[501]`, so a screenshot of it
- * would be evidence of nothing. The only honest evidence that the record does
- * or does not exist is a direct `text(node, key)` call against the resolver the
- * registry itself names — the node, the resolver address, the block number and
- * the verbatim returned string are therefore all on screen, and a missing
- * record is rendered as a missing record with the exact command that would fix
- * it, never as a checkmark.
+ * Connect an Ethereum wallet on Sepolia, sign once to derive the viewing key,
+ * and make sure the wallet's ENS name publishes that key. If the record is
+ * missing, one button sends the real `setText` from the wallet. The evidence
+ * for every claim (the four reads, the raw record, the tx hash) sits behind
+ * one disclosure.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   AlertTriangle,
+  ArrowUpRight,
   Check,
   Fingerprint,
   KeyRound,
   Search,
   ShieldAlert,
+  Wallet,
   X,
 } from "lucide-react";
 
-import { Button, Spinner, StatusPill } from "../components/ui";
-import { PAYOUT_KEY_SIGN_MESSAGE, PAYOUT_RECORD_KEY, bytesToHex0x } from "../shared/ensPayout";
+import { Button, Card, Disclosure, Spinner, StatusPill, Verdict } from "../components/ui";
+import { PAYOUT_RECORD_KEY, bytesToHex0x } from "../shared/ensPayout";
 import { ENS_CHAIN } from "../shared/ensClient";
-import { shortHash, subjectCommitment as deriveSubjectCommitment } from "../shared/policy";
-import { isLikelyEnsName, setupCommand, useEnsIdentity } from "./ensIdentity";
-import { useWitness } from "./witnessStore";
+import { shortAddress } from "../shared/wallets";
+import { isLikelyEnsName, useEnsIdentity } from "./ensIdentity";
 
-/** `0x1234…abcd`, or the whole thing when it is already short. */
-function abbreviate(value: string): string {
-  return value.length <= 22 ? value : `${value.slice(0, 12)}…${value.slice(-8)}`;
-}
+const ENS_APP = "https://app.ens.dev";
 
 export function EnsIdentityPanel() {
   const ens = useEnsIdentity();
-  const witness = useWitness();
-  const [signature, setSignature] = useState("");
-  const [subject, setSubject] = useState<string | null>(null);
-
-  const blindingFactor = witness.blindingFactor;
-  const name = ens.name;
-
-  /**
-   * The subject commitment, recomputed whenever the identity or the blinding
-   * factor changes. It is shown here rather than only inside the receipt so
-   * the applicant can see, before publishing anything, exactly which value
-   * represents them — and that it is not their name.
-   */
-  useEffect(() => {
-    let live = true;
-    if (!name || !blindingFactor) {
-      setSubject(null);
-      return () => {
-        live = false;
-      };
-    }
-    void deriveSubjectCommitment(name, blindingFactor).then((value) => {
-      if (live) setSubject(value);
-    });
-    return () => {
-      live = false;
-    };
-  }, [name, blindingFactor]);
+  const [draft, setDraft] = useState("");
 
   const resolving = ens.status === "resolving";
-  const record = ens.payoutRecord;
   const resolution = ens.resolution;
-  const registered = resolution?.owner !== null && resolution?.owner !== undefined;
+  const registered = Boolean(resolution?.owner) || resolution?.registry === "ensv2";
   const onChainKey = ens.onChainPayoutKey;
-  const derivedKey = ens.viewing ? bytesToHex0x(ens.viewing.publicKey) : null;
-  const keysAgree =
-    onChainKey !== null && derivedKey !== null && bytesToHex0x(onChainKey) === derivedKey;
+  const busy = ens.walletStatus === "connecting" || ens.walletStatus === "signing";
+  const publishing = ens.publishStatus !== "idle";
+  const typed = ens.name || draft;
+
+  const pill = ens.ready ? (
+    <StatusPill tone="success">
+      <Check size={13} /> Ready
+    </StatusPill>
+  ) : ens.wallet ? (
+    <StatusPill tone="warning">Setup needed</StatusPill>
+  ) : (
+    <StatusPill tone="neutral">Not connected</StatusPill>
+  );
 
   return (
-    <div className={onChainKey ? "identity-record" : "identity-record identity-record--pending"}>
-      <div className="identity-record__title">
-        <span className="avatar avatar--large" aria-hidden="true">
-          <Fingerprint size={18} />
+    <Card className="task-card task-card--auto">
+      <div className="task-card__heading">
+        <span className="task-icon">
+          <Fingerprint size={22} />
         </span>
-        <span>
-          <strong>ENS identity</strong>
-          <small>
-            The applicant&apos;s only public identifier, and the sole input to the payout address.
-            Read live from {ENS_CHAIN.name}.
-          </small>
-        </span>
-        {onChainKey ? (
-          <StatusPill tone="success">Payout key read from ENS</StatusPill>
-        ) : ens.viewing ? (
-          <StatusPill tone="warning">Local demo key</StatusPill>
+        <div>
+          <span className="section-label">Step 1 · Identity</span>
+          <h2>Your ENS name</h2>
+          <p>
+            Lenders never learn your address. They pay a one-time Solana address derived from a
+            key published under your ENS name on {ENS_CHAIN.name}.
+          </p>
+        </div>
+        {pill}
+      </div>
+
+      {/* ------------------------------------------------------- 1. wallet */}
+
+      <div className="wallet-row">
+        {ens.wallet ? (
+          <>
+            <span className="wallet-chip">
+              <Wallet size={14} /> {shortAddress(ens.wallet)}
+              <small>Sepolia</small>
+            </span>
+            <span className={ens.viewing ? "wallet-chip wallet-chip--ok" : "wallet-chip"}>
+              <KeyRound size={14} />
+              {ens.viewing ? "Viewing key derived" : "Viewing key not signed"}
+            </span>
+            {!ens.viewing ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy}
+                icon={busy ? <Spinner /> : <KeyRound size={15} />}
+                onClick={() => void ens.signViewingKey()}
+              >
+                Sign to derive key
+              </Button>
+            ) : null}
+          </>
         ) : (
-          <StatusPill tone="neutral">Not resolved</StatusPill>
+          <Button
+            type="button"
+            disabled={busy}
+            icon={busy ? <Spinner /> : <Wallet size={16} />}
+            onClick={() => void ens.connectWallet()}
+          >
+            {ens.walletStatus === "connecting"
+              ? "Connecting"
+              : ens.walletStatus === "signing"
+                ? "Sign in your wallet"
+                : "Connect Ethereum wallet"}
+          </Button>
         )}
       </div>
 
-      <div className="ens-panel">
-        <label className="form-field">
-          <span>ENS name</span>
-          <input
-            className="text-input"
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="e.g. privatecredit.eth"
-            value={ens.name}
-            disabled={resolving}
-            onChange={(event) => ens.setName(event.target.value)}
-          />
-        </label>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={resolving || !isLikelyEnsName(ens.name)}
-          icon={resolving ? <Spinner /> : <Search size={15} />}
-          onClick={() => void ens.resolve()}
-        >
-          {resolving ? "Reading Sepolia" : "Resolve on Sepolia"}
-        </Button>
-      </div>
-
-      <p className="provenance-note">
-        Four reads, none of them ours: registry <code>owner(node)</code>, registry{" "}
-        <code>resolver(node)</code>, resolver <code>addr(node)</code>, and resolver{" "}
-        <code>text(node, &quot;{PAYOUT_RECORD_KEY}&quot;)</code>. Deliberately not{" "}
-        <code>getEnsText()</code> — that routes through the UniversalResolver and adds CCIP-Read
-        behaviour we would then have to explain. This is the plainest call there is.
-      </p>
-
-      {ens.status === "error" && ens.error ? (
+      {ens.walletError ? (
         <div className="inline-state inline-state--danger" role="alert">
           <AlertTriangle size={19} />
           <div>
-            <strong>The name could not be resolved</strong>
-            <span>{ens.error}</span>
+            <strong>Wallet</strong>
+            <span>{ens.walletError}</span>
           </div>
         </div>
       ) : null}
 
-      {resolution ? (
+      {/* --------------------------------------------------------- 2. name */}
+
+      {ens.wallet ? (
         <>
+          <div className="ens-panel">
+            <label className="form-field">
+              <span>ENS name this wallet owns</span>
+              <input
+                className="text-input"
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="yourname.eth"
+                value={typed}
+                disabled={resolving || publishing}
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  ens.setName(event.target.value);
+                }}
+              />
+            </label>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={resolving || publishing || !isLikelyEnsName(typed)}
+              icon={resolving ? <Spinner /> : <Search size={15} />}
+              onClick={() => void ens.resolve(typed)}
+            >
+              {resolving ? "Reading" : "Look up"}
+            </Button>
+          </div>
+
+          {ens.status === "error" && ens.error ? (
+            <Verdict tone="danger" icon={<AlertTriangle size={15} />} title="That name could not be read">
+              {ens.error}
+            </Verdict>
+          ) : !resolution ? (
+            <Verdict tone="pending" icon={<Search size={15} />} title="Enter the ENS name you own">
+              No primary name was found for this wallet on {ENS_CHAIN.name}. Type one you own, or{" "}
+              <a href={ENS_APP} target="_blank" rel="noreferrer">
+                register one on ENSv2 <ArrowUpRight size={12} />
+              </a>{" "}
+              (a few minutes, test USDC plus a little Sepolia ETH).
+            </Verdict>
+          ) : !registered ? (
+            <Verdict tone="danger" icon={<X size={15} />} title={`${ens.name} is not registered`}>
+              <a href={`${ENS_APP}/${ens.name}`} target="_blank" rel="noreferrer">
+                Register it on {ENS_CHAIN.name} <ArrowUpRight size={12} />
+              </a>
+              , then look it up again.
+            </Verdict>
+          ) : onChainKey && ens.keysAgree ? (
+            <Verdict
+              tone="success"
+              icon={<Check size={15} />}
+              title={`${ens.name} publishes your payout key`}
+            >
+              Lenders read <code>{PAYOUT_RECORD_KEY}</code> from this name and derive a fresh
+              address for every draw. You are ready to list a request.
+            </Verdict>
+          ) : onChainKey && !ens.viewing ? (
+            <Verdict tone="warning" icon={<KeyRound size={15} />} title="Sign to unlock this identity">
+              A payout key is published, but this tab has not derived yours yet. Sign the message
+              above with the wallet that published it.
+            </Verdict>
+          ) : onChainKey ? (
+            <Verdict
+              tone="danger"
+              icon={<ShieldAlert size={15} />}
+              title="This name publishes a different key"
+            >
+              Payments would go to a key this wallet cannot recover. Replace the record with this
+              wallet&apos;s key, or connect the wallet that published it.
+            </Verdict>
+          ) : (
+            <Verdict tone="warning" icon={<ShieldAlert size={15} />} title="No payout key published yet">
+              One transaction from your wallet writes it to the resolver. Until then no lender can
+              pay you.
+            </Verdict>
+          )}
+
+          {resolution && registered && !(onChainKey && ens.keysAgree) ? (
+            <div className="task-card__action task-card__action--flush">
+              <span className="action-note">
+                {publishing
+                  ? ens.publishStatus === "sending"
+                    ? "Confirm the transaction in your wallet"
+                    : "Waiting for Sepolia to mine it"
+                  : `setText(${PAYOUT_RECORD_KEY}) on the resolver, signed by your wallet`}
+              </span>
+              <Button
+                type="button"
+                disabled={publishing || !ens.viewing}
+                icon={publishing ? <Spinner /> : <ArrowUpRight size={16} />}
+                onClick={() => void ens.publishRecord()}
+              >
+                {publishing
+                  ? "Publishing"
+                  : onChainKey
+                    ? "Replace the record"
+                    : "Publish payout key to ENS"}
+              </Button>
+            </div>
+          ) : null}
+
+          {ens.publishError ? (
+            <div className="inline-state inline-state--danger" role="alert">
+              <AlertTriangle size={19} />
+              <div>
+                <strong>The record was not published</strong>
+                <span>{ens.publishError}</span>
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+
+      {/* ----------------------------------------------------- 3. evidence */}
+
+      {resolution ? (
+        <Disclosure
+          summary="On-chain evidence"
+          count={`${ENS_CHAIN.name} · block ${String(resolution.blockNumber)}`}
+        >
           <dl className="identity-details">
             <div>
-              <dt>namehash(node)</dt>
-              <dd title={resolution.node}>{abbreviate(resolution.node)}</dd>
+              <dt>Registry</dt>
+              <dd>{resolution.registry === "ensv2" ? "ENSv2 (hierarchical)" : "ENSv1 (legacy)"}</dd>
             </div>
             <div>
               <dt>Registry owner</dt>
               <dd title={resolution.owner ?? undefined}>
-                {resolution.owner ? abbreviate(resolution.owner) : "unregistered — no owner"}
+                {resolution.owner ? shortAddress(resolution.owner) : "unregistered"}
               </dd>
             </div>
             <div>
               <dt>Resolver</dt>
               <dd title={resolution.resolver ?? undefined}>
-                {resolution.resolver ? abbreviate(resolution.resolver) : "none set"}
+                {resolution.resolver ? shortAddress(resolution.resolver) : "none set"}
               </dd>
             </div>
             <div>
               <dt>addr(node)</dt>
               <dd title={resolution.address ?? undefined}>
-                {resolution.address ? abbreviate(resolution.address) : "not set"}
+                {resolution.address ? shortAddress(resolution.address) : "not set"}
               </dd>
             </div>
             <div>
@@ -177,193 +275,42 @@ export function EnsIdentityPanel() {
                     ? "not set"
                     : ens.reverse.forwardMatches
                       ? `${ens.reverse.name} (round trip holds)`
-                      : `${ens.reverse.name} (forward does NOT match)`}
+                      : `${ens.reverse.name} (forward mismatch)`}
               </dd>
             </div>
             <div>
-              <dt>Read at block</dt>
-              <dd>{String(resolution.blockNumber)}</dd>
-            </div>
-          </dl>
-
-          <div className={onChainKey ? "hash-check" : "hash-check hash-check--fail"}>
-            <span className="hash-check__mark" aria-hidden="true">
-              {onChainKey ? <Check size={13} /> : <X size={13} />}
-            </span>
-            <span>
-              <strong>
-                {record === null
-                  ? `No text() read happened for ${PAYOUT_RECORD_KEY}`
-                  : onChainKey
-                    ? `${PAYOUT_RECORD_KEY} is set and parses`
-                    : `${PAYOUT_RECORD_KEY} is not usable on this name`}
-              </strong>
-              <small>
-                {record === null ? (
-                  <>
-                    The name has no resolver, or the RPC call failed. That is not the same as
-                    &quot;the record is empty&quot;, so nothing is claimed either way.
-                  </>
-                ) : (
-                  <>
-                    Raw value returned by <code>text()</code> at block {String(record.blockNumber)}:{" "}
-                    <code className="raw-record">
-                      {record.value === "" ? '"" (empty string)' : record.value}
-                    </code>
-                    {record.decodeError ? <> — {record.decodeError}</> : null}
-                  </>
-                )}
-              </small>
-            </span>
-          </div>
-        </>
-      ) : null}
-
-      {resolution && !onChainKey ? (
-        <div className="inline-state" role="note">
-          <ShieldAlert size={19} />
-          <div>
-            <strong>Publish the record to make this the real path</strong>
-            <span>
-              Nothing here fakes it. To set the record for real, from the repo root with a funded
-              Sepolia key:
-              <br />
-              <code className="raw-record">{setupCommand(ens.name || "yourname.eth", registered)}</code>
-              <br />
-              {registered
-                ? null
-                : "The name has no registry owner, so it has to be registered first — that command commits, waits out minCommitmentAge and registers with the setText embedded, so the name is never live without the record."}{" "}
-              Until then, the key below travels with the credit request and is marked{" "}
-              <code>local-demo</code> on every screen that uses it. In production that field does
-              not exist: the lender resolves the name or cannot pay.
-            </span>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="ens-key-block">
-        <div className="proof-section-heading">
-          <span>
-            <KeyRound size={15} /> Viewing key
-          </span>
-          <small>X25519 · never leaves this tab</small>
-        </div>
-
-        <p className="provenance-note">
-          The key is derived, not stored: HKDF-SHA256 over a <code>personal_sign</code> signature,
-          clamped per RFC 7748 §5. The signature is deterministic per wallet (RFC 6979), so the same
-          wallet reproduces the same key on any device with nothing backed up. Paste one below, or
-          generate demo material if you have no wallet connected here — both go through the identical
-          derivation, and the second is labelled as demo material everywhere it appears.
-        </p>
-
-        <pre className="sign-message">{PAYOUT_KEY_SIGN_MESSAGE}</pre>
-
-        <div className="ens-panel">
-          <label className="form-field">
-            <span>personal_sign output (65 bytes of hex)</span>
-            <input
-              className="text-input"
-              type="text"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="0x…"
-              value={signature}
-              onChange={(event) => setSignature(event.target.value)}
-            />
-          </label>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={signature.trim().length === 0}
-            onClick={() => ens.deriveFromSignature(signature.trim())}
-          >
-            Derive from signature
-          </Button>
-          <Button type="button" variant="quiet" onClick={() => ens.generateDemoKey()}>
-            Generate demo key material
-          </Button>
-        </div>
-
-        {ens.viewingError ? (
-          <div className="inline-state inline-state--danger" role="alert">
-            <AlertTriangle size={19} />
-            <div>
-              <strong>That is not usable signature material</strong>
-              <span>{ens.viewingError}</span>
-            </div>
-          </div>
-        ) : null}
-
-        {ens.viewing && derivedKey ? (
-          <dl className="identity-details">
-            <div>
-              <dt>Derived X25519 public key</dt>
-              <dd title={derivedKey}>{abbreviate(derivedKey)}</dd>
-            </div>
-            <div>
-              <dt>Source</dt>
-              <dd>
-                {ens.viewingSource === "signature"
-                  ? "personal_sign (reproducible)"
-                  : "local demo material (this tab only)"}
+              <dt>{PAYOUT_RECORD_KEY}</dt>
+              <dd title={ens.payoutRecord?.value}>
+                {ens.payoutRecord === null
+                  ? "no read"
+                  : ens.payoutRecord.value === ""
+                    ? '"" (unset)'
+                    : ens.payoutRecord.value}
               </dd>
             </div>
             <div>
-              <dt>Record value it would publish</dt>
-              <dd title={ens.recordValue ?? undefined}>{abbreviate(ens.recordValue ?? "")}</dd>
+              <dt>This wallet&apos;s key</dt>
+              <dd title={ens.viewing ? bytesToHex0x(ens.viewing.publicKey) : undefined}>
+                {ens.viewing ? shortAddress(bytesToHex0x(ens.viewing.publicKey)) : "not signed"}
+              </dd>
             </div>
           </dl>
-        ) : null}
-
-        {onChainKey && derivedKey ? (
-          <div className={keysAgree ? "hash-check" : "hash-check hash-check--fail"}>
-            <span className="hash-check__mark" aria-hidden="true">
-              {keysAgree ? <Check size={13} /> : <X size={13} />}
-            </span>
-            <span>
-              <strong>
-                {keysAgree
-                  ? "The published record is this tab's key"
-                  : "The published record is a DIFFERENT key"}
-              </strong>
-              <small>
-                {keysAgree
-                  ? "The lender will derive against the key ENS published, and this tab holds the scalar that recovers it."
-                  : "The lender derives against what ENS published, which is correct. This tab cannot recover a payout made to that key — derive the viewing key from the wallet that owns the record."}
-              </small>
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="ens-key-block">
-        <div className="proof-section-heading">
-          <span>Subject commitment · public signal [3]</span>
-          <small>Poseidon2(utf8ToField(ensName), blindingFactor)</small>
-        </div>
-        <dl className="identity-details">
-          <div>
-            <dt>Identity committed</dt>
-            <dd>{ens.name || "— enter a name"}</dd>
-          </div>
-          <div>
-            <dt>Blinding factor</dt>
-            <dd>{blindingFactor ? `${shortHash(blindingFactor)} · never published` : "— read a passport first"}</dd>
-          </div>
-          <div>
-            <dt>subjectCommitment</dt>
-            <dd title={subject ?? undefined}>{subject ? shortHash(subject) : "—"}</dd>
-          </div>
-        </dl>
-        <p className="provenance-note">
-          <strong>The raw namehash is deliberately not what gets published.</strong>{" "}
-          <code>namehash(&quot;alice.eth&quot;)</code> is unsalted and publicly computable, so anyone
-          holding a list of ENS names can hash the whole list once and invert every namehash they
-          ever see. The blinding factor is fresh per passport and never leaves this tab, which turns
-          a lookup table into a search over the whole field.
-        </p>
-      </div>
-    </div>
+          {ens.publishTx ? (
+            <p className="provenance-note">
+              Published in{" "}
+              <a href={`${ENS_CHAIN.explorer}/tx/${ens.publishTx}`} target="_blank" rel="noreferrer">
+                {shortAddress(ens.publishTx)} <ArrowUpRight size={12} />
+              </a>
+            </p>
+          ) : null}
+          <p className="provenance-note">
+            ENSv2 is read first through <code>UniversalResolverV2.findResolver</code> /{" "}
+            <code>resolve</code>; the legacy v1 registry is the fallback. The viewing key is HKDF over a{" "}
+            <code>personal_sign</code>, so the same wallet reproduces it anywhere; nothing is
+            stored.
+          </p>
+        </Disclosure>
+      ) : null}
+    </Card>
   );
 }

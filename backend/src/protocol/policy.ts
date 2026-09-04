@@ -186,10 +186,17 @@ export function evaluatePolicy(witness: Witness, policy: LendingPolicy): PolicyR
       // "cannot establish" must never be silently read as "old enough".
       key: "history",
       label: "Account history",
+      // A zero floor means the lender does not underwrite on age at all, so
+      // an indeterminate scan passes too — which is also what the circuit
+      // computes, since null commits as 0 and 0 >= 0.
       passed:
-        witness.historyMonths !== null &&
-        witness.historyMonths >= policy.minimumHistoryMonths,
-      requirement: `${policy.minimumHistoryMonths}+ months of on-chain history`,
+        policy.minimumHistoryMonths === 0 ||
+        (witness.historyMonths !== null &&
+          witness.historyMonths >= policy.minimumHistoryMonths),
+      requirement:
+        policy.minimumHistoryMonths === 0
+          ? "No history requirement"
+          : `${policy.minimumHistoryMonths}+ months of on-chain history`,
     },
     {
       key: "exposure",
@@ -236,9 +243,9 @@ export const POLICY_OPTIONS: {
   minimumCollateralQuality: number[];
   minimumHistoryMonths: number[];
 } = {
-  minimumAssets: [100, 1_000, 10_000, 50_000, 100_000, 250_000],
+  minimumAssets: [1, 10, 100, 1_000, 10_000, 50_000, 100_000, 250_000],
   minimumCollateralQuality: [0, 25, 50, 75, 90],
-  minimumHistoryMonths: [3, 6, 12, 18],
+  minimumHistoryMonths: [0, 3, 6, 12, 18],
 };
 
 /* -------------------------------------------------------------- self-test */
@@ -398,12 +405,22 @@ if (process.argv[1] && process.argv[1].endsWith("policy.ts")) {
   const indeterminate = evaluatePolicy({ ...witness, historyMonths: null }, policy);
   assert(!indeterminate[2].passed, "a null history fails closed");
   assert(!isEligible(indeterminate), "a null history blocks eligibility");
+  // A zero threshold is "not underwriting on age", and it must agree with the
+  // circuit: null commits as 0 there and 0 >= 0 holds, so the JS evaluator
+  // says the same or the borrower's expected signals would never match.
   assert(
-    !evaluatePolicy({ ...witness, historyMonths: null }, {
+    evaluatePolicy({ ...witness, historyMonths: null }, {
       ...policy,
       minimumHistoryMonths: 0,
     })[2].passed,
-    "a null history fails closed even against a zero threshold",
+    "a zero history threshold waives the age check, matching the circuit",
+  );
+  assert(
+    !evaluatePolicy({ ...witness, historyMonths: null }, {
+      ...policy,
+      minimumHistoryMonths: 3,
+    })[2].passed,
+    "a null history still fails closed against any positive threshold",
   );
 
   // Restricted exposure, screened and unscreened.
@@ -418,7 +435,7 @@ if (process.argv[1] && process.argv[1].endsWith("policy.ts")) {
   // ---- POLICY_OPTIONS: every offered tier must be usable, and the cheapest
   // ones must actually be reachable by a real small wallet. A policy builder
   // whose floor nobody can meet ends every demo on a red badge.
-  assert(POLICY_OPTIONS.minimumAssets[0] === 100, "the cheapest asset tier is $100");
+  assert(POLICY_OPTIONS.minimumAssets[0] === 1, "the cheapest asset tier is $1 — any funded wallet can reach it");
   assert(
     POLICY_OPTIONS.minimumCollateralQuality[0] === 0,
     "a zero quality floor is offered — a SOL-only wallet scores 0% and could otherwise never pass",
@@ -456,8 +473,12 @@ if (process.argv[1] && process.argv[1].endsWith("policy.ts")) {
     screenRestrictedExposure: true,
   };
   assert(
-    !isEligible(evaluatePolicy(smallWallet, loosestOffered)),
-    "$38 still fails the $100 floor — the floor is a real threshold, not a rubber stamp",
+    isEligible(evaluatePolicy(smallWallet, loosestOffered)),
+    "a real $38 wallet clears the loosest offered policy",
+  );
+  assert(
+    !isEligible(evaluatePolicy({ ...smallWallet, assets: 0 }, loosestOffered)),
+    "an empty wallet still fails the $1 floor — the floor is a real threshold, not a rubber stamp",
   );
   assert(
     isEligible(

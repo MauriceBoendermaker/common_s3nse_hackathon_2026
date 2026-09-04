@@ -18,7 +18,7 @@ export function SiteFooter({ onNavigate }: SiteFooterProps) {
               <BrandMark />
               <strong>{PRODUCT_CONFIG.name}</strong>
             </RouteLink>
-            <p>Privacy-preserving eligibility proofs for DeFi credit.</p>
+            <p>A private credit marketplace on Solana, anchored to ENS.</p>
             <a
               className="footer-github"
               href="https://github.com/MauriceBoendermaker/common_s3nse_hackathon_2026"
@@ -41,9 +41,9 @@ export function SiteFooter({ onNavigate }: SiteFooterProps) {
           ))}
 
           <div className="footer-status">
-            <span>Prototype status</span>
-            <strong><i aria-hidden="true" />{PRODUCT_CONFIG.network} demo</strong>
-            <p>ZK proof generation and verification are real, and ENS names are resolved live on Sepolia. Wallet confirmations and fund settlement are simulated, and no Solana program is deployed.</p>
+            <span>Status</span>
+            <strong><i aria-hidden="true" />Live on {PRODUCT_CONFIG.network}</strong>
+            <p>Portfolios are read from Solana mainnet, proofs are Groth16 and verified on chain by the private_credit program, and ENS is read and written on Sepolia from your wallet. Unaudited; no real funds.</p>
           </div>
         </div>
 

@@ -34,14 +34,15 @@ import { usePublishPartyStatus } from "../state/connectionStatus";
 import { useNow } from "../state/useNow";
 import { FlowSteps } from "./FlowSteps";
 import { LoanLifecycle } from "./LoanLifecycle";
+import { SettlementPanel } from "./SettlementPanel";
 import { Button, Card, Spinner, StatusPill } from "./ui";
 
 const providerSteps = [
-  { label: "Review requests", description: "Public terms and provenance" },
-  { label: "Send policy", description: "Four thresholds, one hash" },
-  { label: "Verify receipt", description: "Re-check every binding" },
-  { label: "Fund offer", description: "Price the verified request" },
-  { label: "Track loan", description: "Draw and repayment" },
+  { label: "Market", description: "Pick a request" },
+  { label: "Policy", description: "Four thresholds" },
+  { label: "Verify", description: "Check the proof" },
+  { label: "Offer", description: "Price it" },
+  { label: "Loan", description: "Settle and track" },
 ] as const;
 
 function newest<T extends { createdAt: number }>(rows: T[]): T | null {
@@ -123,10 +124,18 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
     const payouts =
       state && request ? state.payouts.filter((row) => row.requestId === request.id) : [];
 
-    return { requests, request, challenge, proof, offer, loan, payouts };
+    // At most one settlement per offer: the loan PDA is seeded by the request
+    // id, so a second `present_and_fund` for the same request cannot create it
+    // twice even if the UI asked.
+    const settlement =
+      state && offer
+        ? (state.settlements.find((row) => row.offerId === offer.id) ?? null)
+        : null;
+
+    return { requests, request, challenge, proof, offer, loan, payouts, settlement };
   }, [state, sessionId, pickedRequestId]);
 
-  const { requests, request, challenge, proof, offer, loan, payouts } = view;
+  const { requests, request, challenge, proof, offer, loan, payouts, settlement } = view;
 
   const step = loan ? 4 : offer ? 3 : challenge ? 2 : request ? 1 : 0;
 
@@ -135,12 +144,9 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
       <div className="product-page" id="top">
         <Card className="empty-workspace">
           <Spinner />
-          <span className="section-label">Provider workspace</span>
-          <h2>{connection === "error" ? "Cannot reach the backend" : "Claiming a session"}</h2>
-          <p>
-            {error ??
-              "Asking the protocol backend for a lender session id, then opening a long-poll on the shared state."}
-          </p>
+          <span className="section-label">Lend</span>
+          <h2>{connection === "error" ? "Cannot reach the backend" : "Opening your session"}</h2>
+          <p>{error ?? "Claiming a lender session on the marketplace backend."}</p>
           <small>Connection: {connection}</small>
         </Card>
       </div>
@@ -151,12 +157,12 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
     <div className="product-page" id="top">
       <header className="product-page__header">
         <div>
-          <span className="eyebrow">Capital provider · session {shortHash(session.sessionId)}</span>
-          <h1>Underwrite without collecting raw portfolios.</h1>
+          <span className="eyebrow">Lend · session {shortHash(session.sessionId)}</span>
+          <h1>Fund borrowers you can verify, without seeing their portfolio.</h1>
         </div>
         <StatusPill tone={requests.length > 0 ? "success" : "neutral"}>
           <Inbox size={14} />
-          {requests.length} open request{requests.length === 1 ? "" : "s"}
+          {requests.length} listed request{requests.length === 1 ? "" : "s"}
         </StatusPill>
       </header>
 
@@ -194,19 +200,18 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
                 <dd>{shortHash(request.passportCommitment)}</dd>
               </div>
               <div>
-                <dt>Portfolio values received</dt>
-                <dd>none</dd>
+                <dt>Identity</dt>
+                <dd>{request.ensName}</dd>
               </div>
               <div>
-                <dt>Receipt</dt>
+                <dt>Proof</dt>
                 <dd>{proof ? proof.verification.status : challenge ? "awaited" : "not requested"}</dd>
               </div>
             </dl>
             <div className="sealed-note">
               <EyeOff size={16} />
               <span>
-                <strong>Nothing here can be un-sealed.</strong> The values behind the commitment are not
-                withheld by policy — they were never sent.
+                <strong>No portfolio value was ever sent.</strong> You underwrite a proof.
               </span>
             </div>
             <FlowSteps steps={providerSteps} currentStep={step} />
@@ -215,7 +220,7 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
               className="text-button sidebar-withdraw"
               onClick={() => setPickedRequestId(null)}
             >
-              Back to the inbox
+              Back to the market
             </button>
           </aside>
 
@@ -227,12 +232,9 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
                     <Landmark size={22} />
                   </span>
                   <div>
-                    <span className="section-label">Step 5 of 5</span>
-                    <h2>Track the credit line</h2>
-                    <p>
-                      The applicant accepted this offer. Both tabs read the same loan row from the same
-                      store.
-                    </p>
+                    <span className="section-label">Step 5 · Loan</span>
+                    <h2>Settle and track the loan</h2>
+                    <p>The borrower accepted your offer. Settle it on Solana, then track repayment.</p>
                   </div>
                 </div>
                 <LoanLifecycle
@@ -269,12 +271,22 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
                   payouts={payouts}
                   onChanged={refresh}
                 />
+                <SettlementPanel
+                  role="lender"
+                  sessionId={session.sessionId}
+                  requestId={request.id}
+                  offerId={offer.id}
+                  proofId={offer.proofId}
+                  payoutId={payouts.find((row) => row.offerId === offer.id)?.id ?? null}
+                  settlement={settlement}
+                  onChanged={refresh}
+                />
                 <div className="task-card__action">
                   <span className="action-note">
-                    <EyeOff size={15} /> No portfolio value was received at any point in this flow
+                    <EyeOff size={15} /> No portfolio value was received at any point
                   </span>
                   <Button variant="secondary" onClick={onOpenBorrower} icon={<ArrowRight size={16} />}>
-                    Open the applicant workspace
+                    Open the borrower side
                   </Button>
                 </div>
               </Card>
@@ -285,9 +297,9 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
                     <Landmark size={22} />
                   </span>
                   <div>
-                    <span className="section-label">Step 4 of 5</span>
-                    <h2>Offer funded and delivered</h2>
-                    <p>Waiting for {request.borrowerLabel} to accept or ignore it.</p>
+                    <span className="section-label">Step 4 · Offer</span>
+                    <h2>Your offer is on the listing</h2>
+                    <p>Waiting for {request.ensName} to accept it.</p>
                   </div>
                 </div>
                 <div className="funding-receipt">
@@ -316,12 +328,20 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
                   payouts={payouts}
                   onChanged={refresh}
                 />
+                <SettlementPanel
+                  role="lender"
+                  sessionId={session.sessionId}
+                  requestId={request.id}
+                  offerId={offer.id}
+                  proofId={offer.proofId}
+                  payoutId={payouts.find((row) => row.offerId === offer.id)?.id ?? null}
+                  settlement={settlement}
+                  onChanged={refresh}
+                />
                 <div className="task-card__action">
-                  <span className="action-note">
-                    This offer is one row in the shared store, not a rendered mock.
-                  </span>
+                  <span className="action-note">The borrower sees this offer on their listing.</span>
                   <Button variant="secondary" onClick={onOpenBorrower} icon={<ArrowRight size={16} />}>
-                    Open the applicant workspace
+                    Open the borrower side
                   </Button>
                 </div>
               </Card>
@@ -343,7 +363,7 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
                   </span>
                   <div>
                     <span className="section-label">Withdrawn</span>
-                    <h2>The applicant withdrew this request</h2>
+                    <h2>The borrower withdrew this request</h2>
                     <p>Nothing further can be issued against it.</p>
                   </div>
                 </div>
@@ -353,7 +373,7 @@ export function LenderView({ onOpenBorrower }: { onOpenBorrower: () => void }) {
                     onClick={() => setPickedRequestId(null)}
                     icon={<ArrowLeft size={15} />}
                   >
-                    Back to the inbox
+                    Back to the market
                   </Button>
                 </div>
               </Card>

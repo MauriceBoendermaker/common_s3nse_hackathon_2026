@@ -99,7 +99,7 @@ export function AppHeader({ view, resetting, onNavigate, onReset }: AppHeaderPro
           ) : (
             <StatusPill tone="neutral">
               <span className="network-dot" aria-hidden="true" />
-              Prototype · reads mainnet, settles {PRODUCT_CONFIG.settleCluster.replace("Solana ", "")}
+              Reads Solana mainnet · settles {PRODUCT_CONFIG.settleCluster.replace("Solana ", "")}
             </StatusPill>
           )}
 
@@ -119,7 +119,7 @@ export function AppHeader({ view, resetting, onNavigate, onReset }: AppHeaderPro
               onNavigate={onNavigate}
               className="button button--dark header-launch"
             >
-              <span>Open the demo</span>
+              <span>Open the market</span>
               <span className="button__icon">
                 <ArrowRight size={15} />
               </span>

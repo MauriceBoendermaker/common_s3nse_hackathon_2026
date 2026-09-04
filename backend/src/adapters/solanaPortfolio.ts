@@ -42,11 +42,24 @@ import {
 } from "./mints.ts";
 import { MIN_LIQUIDITY_USD, getPrices } from "./prices.ts";
 import { isLikelySolanaAddress, rpcTimed } from "./solanaRpc.ts";
+import { clusterName } from "./solanaSettlement.ts";
 
 /** Where balances are read. */
 export const READ_CLUSTER = "solana-mainnet-beta";
-/** Where the loan will settle once workstream E lands. Deliberately different. */
-export const SETTLE_CLUSTER = "solana-devnet";
+
+/**
+ * Where the loan settles. Deliberately a DIFFERENT cluster from the one
+ * balances are read on, and named on screen for exactly that reason: a judge
+ * who notices real mainnet numbers next to a test-cluster settlement in ten
+ * seconds should find the app already saying so.
+ *
+ * Read from the resolved deployment rather than hard-coded, because "which
+ * chain did this settle on" is the sort of thing a stale constant gets wrong
+ * at the worst possible moment.
+ */
+export function settleCluster(): string {
+  return "solana-" + clusterName();
+}
 
 /** getSignaturesForAddress maxes out at 1000 entries per page. */
 const SIGNATURE_PAGE_SIZE = 1000;
@@ -490,7 +503,7 @@ export async function buildWitness(address: string): Promise<PassportResponse> {
   const provenance: PassportProvenance = {
     address,
     readCluster: READ_CLUSTER,
-    settleCluster: SETTLE_CLUSTER,
+    settleCluster: settleCluster(),
     fetchedAt: new Date(startedAtMs).toISOString(),
     sources,
     allowlist: ALLOWLIST.map((entry) => ({

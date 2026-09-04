@@ -1,141 +1,131 @@
 /**
- * Step 1 — read a real portfolio.
+ * Step 1 — the portfolio. BORROWER-ONLY.
  *
- * BORROWER-ONLY. Imports `witnessStore`.
- *
- * There is deliberately NO prefilled address. A hard-coded sample account is
- * the same disqualifying artefact as a hard-coded witness wearing a different
- * hat: it lets the demo work without the machinery working. The field starts
- * empty, and the 1-4 seconds it takes to answer are real Solana RPC and real
- * Jupiter pricing, not a spinner on a timer.
- *
- * The ENS block that used to sit here as a "Workstream D · pending"
- * placeholder now lives in `EnsIdentityPanel` and is mounted by
- * `BorrowerView` alongside this card, so it stays on screen across step 1 and
- * step 2 — the subject commitment it displays needs the blinding factor, which
- * only exists once the passport has been read.
- *
- * TWO IDENTIFIERS, NEVER CONFLATED. The Solana address on this card is where
- * the PORTFOLIO is read. The ENS name is WHO the applicant is, and is the only
- * input to the payout address. They answer different questions.
+ * Connect Phantom, sign one message proving control of the address, and the
+ * backend reads that address's mainnet balances into a passport. The signature
+ * is the reason nobody can build a passport over a portfolio they do not own.
  */
 
-import { useState, type FormEvent } from "react";
-import { AlertTriangle, ArrowRight, RefreshCw, Search } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, ArrowRight, Database, RefreshCw, Wallet } from "lucide-react";
 
 import { PRODUCT_CONFIG } from "../config/product";
 import { Button, Card, Spinner } from "../components/ui";
-import { isLikelySolanaAddress, useWitness } from "./witnessStore";
+import { portfolioAuthMessage } from "../shared/passportAuth";
+import {
+  bytesToBase64,
+  connectPhantom,
+  describeWalletError,
+  shortAddress,
+  signWithPhantom,
+} from "../shared/wallets";
+import { useWitness } from "./witnessStore";
 
 export function ConnectAccount({ onLoaded }: { onLoaded: () => void }) {
   const witness = useWitness();
-  const [draft, setDraft] = useState(witness.address);
-  const [formatError, setFormatError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<"idle" | "connecting" | "signing">("idle");
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   const loading = witness.status === "loading";
+  const busy = loading || phase !== "idle";
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    const candidate = draft.trim();
-    if (!isLikelySolanaAddress(candidate)) {
-      setFormatError(
-        "That is not a Solana address. Expect 32-44 base58 characters (no 0, O, I or l).",
-      );
+  const run = async () => {
+    setWalletError(null);
+    let address: string;
+    let issuedAt: string;
+    let signature: Uint8Array;
+    try {
+      setPhase("connecting");
+      address = await connectPhantom();
+      setPhase("signing");
+      issuedAt = new Date().toISOString();
+      signature = await signWithPhantom(portfolioAuthMessage(address, issuedAt));
+    } catch (cause) {
+      setPhase("idle");
+      setWalletError(describeWalletError(cause));
       return;
     }
-    setFormatError(null);
-    await witness.load(candidate);
+    setPhase("idle");
+    await witness.load({ address, issuedAt, signature: bytesToBase64(signature) });
     onLoaded();
   };
 
   return (
-    <Card className="task-card">
+    <Card className="task-card task-card--auto">
       <div className="task-card__heading">
         <span className="task-icon">
-          <Search size={22} />
+          <Database size={22} />
         </span>
         <div>
-          <span className="section-label">Step 1 of 6</span>
-          <h2>Connect the portfolio account</h2>
+          <span className="section-label">Step 1 · Portfolio</span>
+          <h2>Read your Solana portfolio</h2>
           <p>
-            The passport is derived from an account that exists. Paste one and the backend reads it live.
+            Sign once with Phantom to prove the address is yours. Balances are read live from{" "}
+            {PRODUCT_CONFIG.readCluster} and stay in this tab.
           </p>
         </div>
       </div>
 
-      <form className="address-form" onSubmit={(event) => void submit(event)}>
-        <label className="form-field">
-          <span>Solana address</span>
-          <input
-            className="text-input"
-            type="text"
-            inputMode="text"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="e.g. 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
-            value={draft}
-            disabled={loading}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              if (formatError) setFormatError(null);
-            }}
-          />
-        </label>
-        <small className="address-form__help">
-          Paste any Solana mainnet address, including your own. Balances are read live from mainnet;
-          settlement will be on devnet.
-        </small>
-
-        {formatError ? (
-          <div className="inline-state inline-state--danger" role="alert">
-            <AlertTriangle size={19} />
-            <div>
-              <strong>Address format</strong>
-              <span>{formatError}</span>
-            </div>
-          </div>
-        ) : null}
-
-        {witness.status === "error" ? (
-          <div className="inline-state inline-state--danger" role="alert">
-            <AlertTriangle size={19} />
-            <div>
-              <strong>The passport read failed</strong>
-              <span>{witness.error}</span>
-            </div>
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={() => void witness.load(draft.trim())}
-              icon={<RefreshCw size={15} />}
-            >
-              Retry
-            </Button>
-          </div>
-        ) : null}
-
-        {loading ? (
-          <div className="generating-state" role="status" aria-live="polite">
-            <Spinner />
-            <div>
-              <strong>Reading {PRODUCT_CONFIG.readCluster}</strong>
-              <span>
-                getBalance → getTokenAccountsByOwner (both token programs) → Jupiter price/v3 →
-                getSignaturesForAddress, paged backwards under a hard cap
-              </span>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="task-card__action">
-          <span className="action-note">
-            Read-only. The portfolio read asks for no signature and holds no key.
+      <div className="wallet-row">
+        {witness.address ? (
+          <span className="wallet-chip">
+            <Wallet size={14} /> {shortAddress(witness.address)}
+            <small>Solana</small>
           </span>
-          <Button type="submit" disabled={loading} icon={loading ? <Spinner /> : <ArrowRight size={16} />}>
-            {loading ? "Reading the chain" : "Read the passport"}
-          </Button>
+        ) : null}
+        <Button
+          type="button"
+          disabled={busy}
+          icon={
+            busy ? <Spinner /> : witness.address ? <RefreshCw size={15} /> : <ArrowRight size={16} />
+          }
+          onClick={() => void run()}
+        >
+          {phase === "connecting"
+            ? "Connecting Phantom"
+            : phase === "signing"
+              ? "Sign in Phantom"
+              : loading
+                ? "Reading the chain"
+                : witness.address
+                  ? "Read again"
+                  : "Connect Phantom and read"}
+        </Button>
+      </div>
+
+      {walletError ? (
+        <div className="inline-state inline-state--danger" role="alert">
+          <AlertTriangle size={19} />
+          <div>
+            <strong>Wallet</strong>
+            <span>{walletError}</span>
+          </div>
         </div>
-      </form>
+      ) : null}
+
+      {witness.status === "error" ? (
+        <div className="inline-state inline-state--danger" role="alert">
+          <AlertTriangle size={19} />
+          <div>
+            <strong>The passport read failed</strong>
+            <span>{witness.error}</span>
+          </div>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="generating-state" role="status" aria-live="polite">
+          <Spinner />
+          <div>
+            <strong>Reading {PRODUCT_CONFIG.readCluster}</strong>
+            <span>Balances, token accounts, Jupiter prices, signature history. A few seconds.</span>
+          </div>
+        </div>
+      ) : null}
+
+      <small className="address-form__help">
+        The signature authorises a read only. It never leaves this session and moves nothing.
+      </small>
     </Card>
   );
 }

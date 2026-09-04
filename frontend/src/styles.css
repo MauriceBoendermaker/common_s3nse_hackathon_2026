@@ -5379,3 +5379,453 @@ select {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* --- progressive disclosure ---------------------------------------------
+ *
+ * Every panel in this app carries evidence that has to be available and must
+ * not be the first thing anyone reads. The claim stays in the open; the four
+ * RPC reads, the seven signals and the raw returned strings live behind one
+ * of these.
+ */
+
+.disclosure {
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.disclosure + .disclosure {
+  margin-top: 8px;
+}
+
+.disclosure__summary {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  cursor: pointer;
+  gap: 9px;
+  list-style: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 550;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.disclosure__summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure__summary:hover {
+  background: rgba(25, 100, 71, 0.045);
+  color: var(--ink);
+}
+
+.disclosure__chevron {
+  flex: none;
+  color: var(--ink-faint);
+  transition: transform 0.18s ease;
+}
+
+.disclosure[open] > .disclosure__summary {
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.disclosure[open] > .disclosure__summary .disclosure__chevron {
+  transform: rotate(90deg);
+}
+
+.disclosure__label {
+  flex: 1 1 auto;
+}
+
+.disclosure__count {
+  flex: none;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.disclosure__body {
+  padding: 14px;
+  background: var(--surface-strong);
+}
+
+.disclosure__body > :first-child {
+  margin-top: 0;
+}
+
+.disclosure__body > :last-child {
+  margin-bottom: 0;
+}
+
+.disclosure__body .provenance-note {
+  margin-bottom: 0;
+}
+
+/* --- the one-line verdict at the top of a panel -------------------------- */
+
+.verdict {
+  display: flex;
+  align-items: flex-start;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  gap: 11px;
+}
+
+.verdict__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(23, 32, 28, 0.06);
+  color: var(--ink-soft);
+}
+
+.verdict__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.verdict__text strong {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.verdict__text span {
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.verdict--success {
+  border-color: rgba(25, 100, 71, 0.3);
+  background: var(--accent-soft);
+}
+
+.verdict--success .verdict__icon {
+  background: rgba(25, 100, 71, 0.14);
+  color: var(--accent-deep);
+}
+
+.verdict--warning {
+  border-color: rgba(134, 93, 32, 0.3);
+  background: var(--warning-soft);
+}
+
+.verdict--warning .verdict__icon {
+  background: rgba(134, 93, 32, 0.14);
+  color: var(--warning);
+}
+
+.verdict--danger {
+  border-color: rgba(154, 61, 53, 0.32);
+  background: var(--danger-soft);
+}
+
+.verdict--danger .verdict__icon {
+  background: rgba(154, 61, 53, 0.14);
+  color: var(--danger);
+}
+
+.verdict--pending .verdict__icon {
+  background: rgba(23, 32, 28, 0.05);
+  color: var(--ink-faint);
+}
+
+/* --- a short plain-language line above the machinery --------------------- */
+
+.lede-note {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.lede-note code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(23, 32, 28, 0.06);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.ens-key-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ens-key-actions__or {
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+/* --- workstream E: settlement on Solana ---------------------------------
+ *
+ * The visual weight here is deliberate. Everything before this panel is a
+ * protocol between two browsers; this is the only place value moves, and it
+ * is the only place a reader can click through to a third party (an explorer)
+ * and check the claim without trusting this app at all.
+ */
+
+.settlement-panel {
+  display: flex;
+  margin-top: 22px;
+  padding: 20px;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  gap: 14px;
+}
+
+.chain-steps {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  list-style: none;
+  gap: 2px;
+}
+
+.chain-step {
+  display: flex;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  gap: 11px;
+}
+
+.chain-step + .chain-step {
+  border-top: 1px solid var(--line);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.chain-step__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 999px;
+}
+
+.chain-step--success .chain-step__mark {
+  background: rgba(25, 100, 71, 0.13);
+  color: var(--accent-deep);
+}
+
+.chain-step--neutral .chain-step__mark {
+  background: rgba(23, 32, 28, 0.07);
+  color: var(--ink-faint);
+}
+
+.chain-step--danger {
+  border-color: rgba(154, 61, 53, 0.28);
+  background: var(--danger-soft);
+}
+
+.chain-step--danger .chain-step__mark {
+  background: rgba(154, 61, 53, 0.14);
+  color: var(--danger);
+}
+
+.chain-step__body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.chain-step__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chain-step__head strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.chain-step__cu {
+  flex: none;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.chain-step__body p {
+  margin: 3px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chain-step__error {
+  color: var(--danger) !important;
+  font-family: var(--font-mono);
+  font-size: 12px !important;
+  overflow-wrap: anywhere;
+}
+
+.chain-step__link {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 6px;
+  color: var(--accent-deep);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.chain-step__link:hover {
+  text-decoration: underline;
+}
+
+.chain-step__link--muted {
+  color: var(--ink-faint);
+  text-decoration: none;
+}
+
+.chain-accounts {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  list-style: none;
+  gap: 0;
+}
+
+.chain-accounts li {
+  display: flex;
+  align-items: center;
+  padding: 9px 0;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.chain-accounts li + li {
+  border-top: 1px solid var(--line);
+}
+
+.chain-accounts li div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.chain-accounts li strong {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.chain-accounts li small {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.chain-accounts li a {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--accent-deep);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.chain-accounts li a:hover {
+  text-decoration: underline;
+}
+
+.inline-state--success {
+  border-color: rgba(25, 100, 71, 0.3);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.inline-state--success > svg {
+  color: var(--accent-deep);
+}
+
+/* --- "open both sides at once" ------------------------------------------
+ *
+ * The two-window instruction, given weight on purpose. The trust boundary in
+ * this project IS the two sessions; a reviewer who clicks between them in one
+ * tab sees a much weaker version of the claim than one who puts them side by
+ * side, and that is worth a short instruction rather than being left to work
+ * out.
+ */
+
+.two-tab-hint {
+  display: flex;
+  margin: 22px 0 0;
+  padding: 14px 16px;
+  align-items: flex-start;
+  border: 1px solid rgba(25, 100, 71, 0.28);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  gap: 12px;
+}
+
+.two-tab-hint > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent-deep);
+}
+
+.two-tab-hint div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.two-tab-hint strong {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.two-tab-hint span {
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.two-tab-hint a {
+  color: var(--accent-deep);
+  font-weight: 550;
+}
+
+.home-honesty-drawer {
+  margin-top: 22px;
+}
+
+.home-honesty-drawer p {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.62;
+}
+
+.home-honesty-drawer p:last-child {
+  margin-bottom: 0;
+}
