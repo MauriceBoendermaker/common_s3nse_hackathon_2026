@@ -194,12 +194,12 @@ export function HowItWorksPage({ onNavigate }: { onNavigate: (view: SiteView) =>
           <article>
             <Network size={24} />
             <div><span className="section-label">Portfolio data</span><h3>Private underwriting input</h3></div>
-            <p>One source: Solana mainnet RPC for balances and Jupiter for prices, both keyless and neither requiring a vendor account. Nine allowlisted mints count—wSOL, USDC, USDT, JitoSOL, mSOL, bSOL, JupSOL, WBTC, WETH—and that list is committed in the repository. Account age comes from a bounded signature scan that reports “cannot establish” rather than guessing.</p>
+            <p>Balances from Solana mainnet RPC, prices from Jupiter—both keyless, no vendor account. Only the nine mints on the allowlist committed in this repo count. Account age comes from a bounded signature scan that reports “cannot establish” rather than guessing.</p>
           </article>
           <article>
             <ShieldCheck size={24} />
             <div><span className="section-label">Proof layer</span><h3>Minimal verification output</h3></div>
-            <p>Discloses one outcome per claim and nothing else. In this build the comparisons are evaluated in the browser and only their results are published; the Groth16 circuit that makes the hiding cryptographic is the next workstream. Either way it does not guarantee repayment, future solvency, or the correctness of the source data.</p>
+            <p>Discloses one outcome per claim and nothing else—the browser proves a BN254 Groth16 statement over a snapshot that never leaves the tab. The trusted setup is single-party, so this shows the mechanism, not a security guarantee, and it says nothing about repayment, future solvency, or the correctness of the source data.</p>
           </article>
         </div>
       </ContentSection>

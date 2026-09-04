@@ -21,7 +21,7 @@ export type NavigationItem = {
 export const APP_NAVIGATION = [
   { view: "overview", label: "Market" },
   { view: "borrower", label: "Request credit" },
-  { view: "lender", label: "Lend" },
+  { view: "lender", label: "Provide credit" },
 ] satisfies Array<{ view: AppView; label: string }>;
 
 export const PUBLIC_NAVIGATION: NavigationItem[] = [

@@ -67,13 +67,13 @@ const assumptions = [
     icon: <Waypoints size={20} />,
     title: "ENS resolution by the payer \u2014 the weakest link",
     body:
-      "Nothing on Solana can read ENS, so a settlement program accepts whatever payout address the payer supplies. The borrower\u2019s tab recomputes the address from the published R and shows a mismatch immediately, but that is detection after the fact, not prevention.",
+      "Nothing on Solana can read ENS, so a settlement program accepts whatever payout address the payer supplies. The borrower\u2019s tab recomputes it from the published R and flags a mismatch immediately \u2014 detection, not prevention.",
   },
   {
     icon: <KeyRound size={20} />,
     title: "One-time keys are not compartmentalised",
     body:
-      "The whole one-time key comes from a single ECDH secret, so whoever can scan can also spend. Unlinkability is unaffected \u2014 without the viewing scalar, two draws still cannot be tied together or to the ENS name. A deliberate trade to avoid ed25519 scalar arithmetic that Solana\u2019s Keypair APIs will not do.",
+      "The whole one-time key comes from one ECDH secret, so whoever can scan can also spend. Unlinkability holds \u2014 without the viewing scalar, two draws cannot be tied to each other or to the ENS name. The trade avoids ed25519 scalar arithmetic Solana\u2019s Keypair APIs will not do.",
   },
   {
     icon: <HardDrive size={20} />,
@@ -83,22 +83,22 @@ const assumptions = [
   {
     icon: <Database size={20} />,
     title: "Data-source correctness",
-    body: "A proof can faithfully evaluate wrong inputs. Balances come from Solana mainnet RPC and Jupiter prices, and nothing yet attests that the address supplied belongs to the applicant.",
+    body: "A proof can faithfully evaluate wrong inputs. Balances come from Solana mainnet RPC and prices from a single quote source, Jupiter; neither response is signed.",
   },
   {
     icon: <Server size={20} />,
     title: "Our backend and passport proxy",
-    body: "The portfolio read goes through a server we run. It sees the address, the balances and USD values, and request timing and IP metadata \u2014 and could return a snapshot that never existed. One unaudited operator, no signed attestation over what it returns.",
+    body: "The portfolio read goes through a server we run. It sees the address, balances, USD values, timing and IP metadata \u2014 and could return a snapshot that never existed. One unaudited operator, nothing signed.",
   },
   {
     icon: <Code2 size={20} />,
     title: "Circuit and verifier",
-    body: "2 980 constraints, with Num2Bits range checks on every value that reaches a comparator \u2014 without those the proof would be forgeable by field overflow. The backend verifies with snarkjs and fails closed if the verifying key is missing or differs from the one the browser proved with.",
+    body: "2 980 constraints, with Num2Bits range checks on every value reaching a comparator \u2014 without those, field overflow would make proofs forgeable. The backend verifies with snarkjs and fails closed if the verifying key is missing or differs from the browser\u2019s.",
   },
   {
     icon: <KeyRound size={20} />,
     title: "Trusted setup",
-    body: "Two phase-2 contributions and a beacon, run by one person on one machine; transcript at zk/build/ceremony-transcript.md. Whoever ran it holds the toxic waste and could forge proofs that verify. Not a real multi-party ceremony.",
+    body: "Two phase-2 contributions and a beacon, all run by one person on one machine; transcript at zk/build/ceremony-transcript.md. Whoever ran it could forge proofs that verify. Not a multi-party ceremony.",
   },
   {
     icon: <ShieldCheck size={20} />,
@@ -108,7 +108,7 @@ const assumptions = [
 ];
 
 const limitations = [
-  "On-chain verification works but is not deployed. The Rust test in prototype/solana-verify/ takes this proof through groth16-solana 0.2.0 (widely used, unaudited) and verifies it, rejecting tampered inputs. Nothing runs on any Solana cluster.",
+  "On-chain verification rests on groth16-solana 0.2.0 — widely used, unaudited. The Rust test in prototype/solana-verify/ runs this proof through it and rejects tampered inputs.",
   "The ENS payout leg is not standard-compliant. The pending stealth-address ENSIP puts non-EVM chains out of scope, so this uses a custom record key and does not reuse ERC-5564 schemeId 1, which would misdescribe the curve.",
   "A claim describes one policy at one point in time. It does not prove future solvency, guarantee repayment, or replace independent underwriting.",
   "Soundness rests on a development trusted setup. Treat it as a demonstration, not a production guarantee.",
@@ -275,7 +275,8 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
           <FileWarning size={27} />
           <div>
             <h3>Experimental and unaudited</h3>
-            <p>Balances are read live from Solana mainnet, ENS names are resolved live on Sepolia, and the proof is a real BN254 Groth16 proof verified by the backend against the same verifying key the browser proved with. On-chain verification works in a local Rust test, but <strong>nothing is deployed on any Solana cluster</strong>: no program exists to call, no independent audit has been done, and no real funds move.</p>
+            <p>Balances are read live from Solana mainnet, ENS names are resolved live on Sepolia, and the proof is a real BN254 Groth16 proof verified by the backend against the same verifying key the browser proved with. <strong>No independent audit has been done, and no real funds move.</strong></p>
+            {!loading && <p>{deploymentSentence(config)}</p>}
             <p>What is enforced rather than illustrated: the passport commitment is published before the provider issues its policy challenge; the backend recomputes the policy hash instead of trusting the client; receipts carry an expiry that is checked; and the nullifier is a program-derived account, so a second presentation of the same receipt is refused by the Solana runtime before any of our code runs.</p>
           </div>
           <span className="status-label status-label--warning">Prototype only</span>

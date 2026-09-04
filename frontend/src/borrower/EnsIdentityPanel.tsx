@@ -59,10 +59,10 @@ export function EnsIdentityPanel() {
         </span>
         <div>
           <span className="section-label">Step 1 · Identity</span>
-          <h2>Your ENS name</h2>
+          <h2>Your ENS domain</h2>
           <p>
             Lenders never learn your address. They pay a one-time Solana address derived from a
-            key published under your ENS name on {ENS_CHAIN.name}.
+            key published under your ENS domain on {ENS_CHAIN.name}.
           </p>
         </div>
         {pill}
