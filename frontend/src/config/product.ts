@@ -23,7 +23,7 @@
  */
 
 export const PRODUCT_CONFIG = {
-  name: "Private Credit",
+  name: "ZKredit",
   category: "Privacy-preserving credit infrastructure",
 
   /**

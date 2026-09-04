@@ -1,4 +1,4 @@
-# Private Credit — Backend & Smart Contract Plan
+# ZKredit — Backend & Smart Contract Plan
 
 **Target:** turn the current front-end simulation into a functional, privacy-preserving credit protocol
 **with all smart contracts on Solana**, in time for Common S3nse.

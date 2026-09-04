@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Groth16 credential pipeline for Private Credit: circuit, dev trusted setup, artifact export.",
+  "description": "Groth16 credential pipeline for ZKredit: circuit, dev trusted setup, artifact export.",
   "scripts": {
     "getcircom": "node getcircom.mjs",
     "build": "node build.mjs",

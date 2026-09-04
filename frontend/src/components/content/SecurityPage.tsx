@@ -134,7 +134,7 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
       <ContentHero
         eyebrow="Security & trust"
         title="Privacy is a boundary, not a slogan."
-        lead="Private Credit is designed to minimize what crosses from an applicant’s financial context to a capital provider. This page documents that boundary, the parties you still trust, and the limits a proof cannot remove."
+        lead="ZKredit is designed to minimize what crosses from an applicant’s financial context to a capital provider. This page documents that boundary, the parties you still trust, and the limits a proof cannot remove."
         aside={
           <div className="trust-scorecard">
             <span className="section-label">Prototype posture</span>

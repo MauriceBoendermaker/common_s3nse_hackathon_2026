@@ -1,4 +1,4 @@
-# Private Credit
+# ZKredit
 
 A privacy-preserving credit protocol. An applicant proves a real Solana portfolio satisfies a
 lender's underwriting policy — **without** revealing the portfolio, the wallet address, or any

@@ -54,7 +54,7 @@ export function PrivacyPage({ onNavigate }: { onNavigate: (view: SiteView) => vo
     >
       <section>
         <h2>1. Prototype scope</h2>
-        <p>Private Credit is an experimental application created for Common S3nse 2026. No real loan application is submitted and no real money is involved: settlement happens on a Solana test cluster, in a token this project minted, signed by operator keypairs the backend holds. Portfolio balances, by contrast, are read for real from Solana mainnet, ENS names are resolved for real on Sepolia, and the marketplace records that pass between the two parties are held by a backend we operate.</p>
+        <p>ZKredit is an experimental application created for Common S3nse 2026. No real loan application is submitted and no real money is involved: settlement happens on a Solana test cluster, in a token this project minted, signed by operator keypairs the backend holds. Portfolio balances, by contrast, are read for real from Solana mainnet, ENS names are resolved for real on Sepolia, and the marketplace records that pass between the two parties are held by a backend we operate.</p>
       </section>
       <section>
         <h2>2. Information used by the app</h2>

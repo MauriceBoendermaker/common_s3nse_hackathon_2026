@@ -5,7 +5,7 @@ include "comparators.circom";
 include "bitify.circom";
 
 /*
- * Private Credit - underwriting policy circuit.
+ * ZKredit - underwriting policy circuit.
  *
  * Proves that a private portfolio snapshot satisfies a lender's policy, and
  * binds the result to one policy, one intended verifier, one subject and one

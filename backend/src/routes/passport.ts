@@ -45,7 +45,7 @@ const inFlight: Map<string, Promise<PassportResponse>> = new Map();
  */
 export function portfolioAuthMessage(address: string, issuedAt: string): string {
   return [
-    "Private Credit - portfolio read authorisation (v1)",
+    "ZKredit - portfolio read authorisation (v1)",
     "",
     `Address: ${address}`,
     `Issued: ${issuedAt}`,

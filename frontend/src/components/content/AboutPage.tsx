@@ -20,9 +20,9 @@ export function AboutPage({ onNavigate }: { onNavigate: (view: SiteView) => void
   return (
     <div className="content-page">
       <ContentHero
-        eyebrow="About Private Credit"
+        eyebrow="About ZKredit"
         title="Make credit evidence useful without making it public."
-        lead="Private Credit explores a simple idea: applicants should be able to prove the facts required by an underwriting policy without surrendering a reusable map of their financial life."
+        lead="ZKredit explores a simple idea: applicants should be able to prove the facts required by an underwriting policy without surrendering a reusable map of their financial life."
         aside={
           <div className="about-mark">
             <span><Sparkles size={22} /></span>

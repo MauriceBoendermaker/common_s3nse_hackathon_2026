@@ -70,18 +70,18 @@ const PATH_VIEWS = new Map(
 );
 
 export const VIEW_TITLES: Record<SiteView, string> = {
-  overview: "Private Credit — Marketplace",
-  borrower: "Borrow | Private Credit",
-  lender: "Lend | Private Credit",
-  "how-it-works": "How it works | Private Credit",
-  security: "Security & trust | Private Credit",
-  "for-borrowers": "For borrowers | Private Credit",
-  "for-capital-providers": "For capital providers | Private Credit",
-  faq: "FAQ | Private Credit",
-  about: "About | Private Credit",
-  privacy: "Privacy notice | Private Credit",
-  terms: "Terms of use | Private Credit",
-  "risk-disclosures": "Risk disclosures | Private Credit",
+  overview: "ZKredit — Marketplace",
+  borrower: "Borrow | ZKredit",
+  lender: "Lend | ZKredit",
+  "how-it-works": "How it works | ZKredit",
+  security: "Security & trust | ZKredit",
+  "for-borrowers": "For borrowers | ZKredit",
+  "for-capital-providers": "For capital providers | ZKredit",
+  faq: "FAQ | ZKredit",
+  about: "About | ZKredit",
+  privacy: "Privacy notice | ZKredit",
+  terms: "Terms of use | ZKredit",
+  "risk-disclosures": "Risk disclosures | ZKredit",
 };
 
 export const VIEW_DESCRIPTIONS: Record<SiteView, string> = {
@@ -93,9 +93,9 @@ export const VIEW_DESCRIPTIONS: Record<SiteView, string> = {
   "for-borrowers": "Learn how applicants can prove eligibility, request credit, compare offers, and protect portfolio details.",
   "for-capital-providers": "Learn how providers configure policies, verify sealed claims, price risk, and integrate.",
   faq: "Answers about wallets, networks, proof expiration, privacy, decisions, costs, and settlement.",
-  about: "The mission, team, and hackathon context behind Private Credit.",
-  privacy: "How the Private Credit prototype handles data and where metadata may remain observable.",
-  terms: "Terms for using the experimental Private Credit prototype.",
+  about: "The mission, team, and hackathon context behind ZKredit.",
+  privacy: "How the ZKredit prototype handles data and where metadata may remain observable.",
+  terms: "Terms for using the experimental ZKredit prototype.",
   "risk-disclosures": "Important technical, financial, privacy, and regulatory risks of the prototype.",
 };
 

@@ -18,7 +18,7 @@ import { API_VERSION } from "./routes/api.ts";
 const port = Number(process.env.PORT) || 3001;
 
 const server = app.listen(port, () => {
-  console.log(`Private Credit backend (${API_VERSION}) listening on http://localhost:${port}`);
+  console.log(`ZKredit backend (${API_VERSION}) listening on http://localhost:${port}`);
   console.log(`  solana rpc     ${RPC_ENDPOINTS.join(", ")}`);
   console.log(`  read cluster   ${READ_CLUSTER}  (real balances)`);
   // The settle cluster is read from the resolved deployment rather than from a
