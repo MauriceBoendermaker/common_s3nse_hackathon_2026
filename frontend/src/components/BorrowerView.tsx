@@ -163,7 +163,7 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
       <div className="product-page" id="top">
         <Card className="empty-workspace">
           <Spinner />
-          <span className="section-label">Borrow</span>
+          <span className="section-label">Request credit</span>
           <h2>{connection === "error" ? "Cannot reach the backend" : "Opening your session"}</h2>
           <p>{error ?? "Claiming a borrower session on the marketplace backend."}</p>
           <small>Connection: {connection}</small>
@@ -176,7 +176,7 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
     <div className="product-page" id="top">
       <header className="product-page__header">
         <div>
-          <span className="eyebrow">Borrow · session {shortHash(session.sessionId)}</span>
+          <span className="eyebrow">Request credit · session {shortHash(session.sessionId)}</span>
           <h1>Borrow against what you can prove.</h1>
         </div>
         <StatusPill tone={request ? "success" : "neutral"}>

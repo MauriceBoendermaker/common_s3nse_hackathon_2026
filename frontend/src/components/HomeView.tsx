@@ -95,7 +95,7 @@ export function HomeView({ onStart }: HomeViewProps) {
 
           <div className="hero-actions">
             <Button onClick={() => onStart("borrower")} icon={<ArrowRight size={16} />}>
-              Borrow
+              Request credit
             </Button>
             <Button
               variant="secondary"
