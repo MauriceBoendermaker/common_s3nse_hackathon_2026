@@ -255,7 +255,7 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                 <div>
                   <span className="section-label">Step 3 · List on the marketplace</span>
                   <h2>Set your terms</h2>
-                  <p>Every lender on the market sees these terms, your ENS name and one hash.</p>
+                  <p>Every lender on the market sees these terms, your ENS domain and one hash.</p>
                 </div>
               </div>
 
@@ -331,7 +331,7 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                   <span className="disclosure-split__label">Public</span>
                   <ul>
                     <li>Amount, term, first-loss deposit</li>
-                    <li>Your ENS name</li>
+                    <li>Your ENS domain</li>
                     <li>One Poseidon hash of the passport</li>
                   </ul>
                 </div>
@@ -351,7 +351,7 @@ function BorrowerWorkspace({ onOpenLender }: { onOpenLender: () => void }) {
                   <div>
                     <strong>Finish your identity first</strong>
                     <span>
-                      Lenders pay to a key published under your ENS name. Without it, nobody can
+                      Lenders pay to a key published under your ENS domain. Without it, nobody can
                       pay you.
                     </span>
                   </div>

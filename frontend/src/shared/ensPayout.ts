@@ -95,7 +95,7 @@ export const PAYOUT_KEY_SIGN_MESSAGE = [
   "Private Credit - payout key derivation (v1)",
   "",
   "Signing this message derives the X25519 viewing key that lenders use to",
-  "compute a fresh Solana payout address for each draw against your ENS name.",
+  "compute a fresh Solana payout address for each draw against your ENS domain.",
   "",
   "It authorises no transaction, moves no funds, and grants no allowance.",
 ].join("\n");

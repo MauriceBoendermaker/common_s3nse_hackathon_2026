@@ -149,7 +149,7 @@ export function RiskDisclosuresPage({ onNavigate }: { onNavigate: (view: SiteVie
       </section>
       <section>
         <h2>4. Data, valuation, and oracle risk</h2>
-        <p>Provider data may be stale, incomplete, duplicated, manipulated, unavailable, or valued differently from authoritative chain state. Prices come from a single quote source and thin-liquidity mints are unreliable. Only allowlisted mints are counted, so a portfolio can be worth far more than the figure the claims are computed over. Unsupported assets and positions remain unknown rather than being assumed absent. Nothing in this build attests that the address supplied belongs to the applicant.</p>
+        <p>Provider data may be stale, incomplete, duplicated, manipulated, unavailable, or valued differently from authoritative chain state. Prices come from a single quote source and thin-liquidity mints are unreliable. Only allowlisted mints are counted, so a portfolio can be worth far more than the figure the claims are computed over. Unsupported assets and positions remain unknown rather than being assumed absent. Control of the address is proven by wallet signature, but nothing attests that the values read for it are correct.</p>
       </section>
       <section>
         <h2>5. Privacy and metadata risk</h2>

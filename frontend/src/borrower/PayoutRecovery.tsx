@@ -114,7 +114,7 @@ export function PayoutRecovery({ requestId, payouts }: PayoutRecoveryProps) {
       {payouts.length === 0 ? (
         <p className="provenance-note">
           The lender has not derived a payout address yet. It happens on their side, from the key
-          published under your ENS name.
+          published under your ENS domain.
         </p>
       ) : !viewingPrivateKey ? (
         <div className="inline-state inline-state--danger" role="alert">

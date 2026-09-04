@@ -102,7 +102,7 @@ export function HomeView({ onStart }: HomeViewProps) {
               onClick={() => onStart("lender")}
               icon={<Building2 size={16} />}
             >
-              Lend
+              Provide credit
             </Button>
           </div>
 
@@ -129,7 +129,7 @@ export function HomeView({ onStart }: HomeViewProps) {
               <span className="signal-icon">
                 <Radio size={14} />
               </span>
-              Paid to a fresh address from your ENS name
+              Paid to a fresh address from your ENS domain
             </span>
           </div>
         </div>
@@ -280,7 +280,7 @@ export function HomeView({ onStart }: HomeViewProps) {
               <strong>List</strong>
               <p>
                 Connect Phantom, read your portfolio, and publish the amount, term and a Poseidon
-                hash of the snapshot. Your ENS name is the only identity on the listing.
+                hash of the snapshot. Your ENS domain is the only identity on the listing.
               </p>
             </div>
           </li>
