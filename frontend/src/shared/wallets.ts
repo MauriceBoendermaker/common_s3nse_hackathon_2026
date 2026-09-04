@@ -19,7 +19,16 @@ import { sepoliaClient } from "./ensClient";
 
 type Eip1193Provider = {
   isMetaMask?: boolean;
+  isPhantom?: boolean;
+  /** Legacy multi-wallet shim some extensions attach to `window.ethereum`. */
+  providers?: Eip1193Provider[];
   request(args: { method: string; params?: unknown[] | object }): Promise<unknown>;
+};
+
+/** EIP-6963: every injected wallet announces itself with a stable reverse-DNS id. */
+type Eip6963ProviderDetail = {
+  info: { uuid: string; name: string; icon: string; rdns: string };
+  provider: Eip1193Provider;
 };
 
 type PhantomPublicKey = { toString(): string };
@@ -70,8 +79,52 @@ export function describeWalletError(cause: unknown): string {
 
 /* ------------------------------------------------------------- ethereum */
 
+const announced: Eip6963ProviderDetail[] = [];
+
+if (typeof window !== "undefined") {
+  window.addEventListener("eip6963:announceProvider", (event) => {
+    const detail = (event as CustomEvent<Eip6963ProviderDetail>).detail;
+    if (detail?.provider && !announced.some((row) => row.info.uuid === detail.info.uuid)) {
+      announced.push(detail);
+    }
+  });
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+}
+
+/**
+ * The Ethereum wallet to use for the ENS identity. MetaMask when present.
+ *
+ * Phantom also injects an EVM provider and, by default, installs itself as
+ * `window.ethereum`, so the naive lookup opens Phantom on a machine that has
+ * both. EIP-6963 announcements identify wallets by reverse-DNS, which is the
+ * only reliable way to tell them apart; the legacy `providers` array and the
+ * `isPhantom` flag are the fallbacks for older wallets.
+ */
 export function getEthereum(): Eip1193Provider | null {
-  return typeof window !== "undefined" && window.ethereum ? window.ethereum : null;
+  if (typeof window === "undefined") return null;
+  const metamask = announced.find((row) => row.info.rdns === "io.metamask");
+  if (metamask) return metamask.provider;
+  const notPhantom = announced.find((row) => row.info.rdns !== "app.phantom");
+  if (notPhantom) return notPhantom.provider;
+  const root = window.ethereum;
+  if (!root) return announced[0]?.provider ?? null;
+  const candidates = root.providers ?? [root];
+  return (
+    candidates.find((p) => p.isMetaMask && !p.isPhantom) ??
+    candidates.find((p) => !p.isPhantom) ??
+    root
+  );
+}
+
+/** Human name of the wallet `getEthereum()` resolves to, for the UI chip. */
+export function ethereumWalletName(): string {
+  const provider = getEthereum();
+  if (!provider) return "Ethereum wallet";
+  const match = announced.find((row) => row.provider === provider);
+  if (match) return match.info.name;
+  if (provider.isPhantom) return "Phantom (EVM)";
+  if (provider.isMetaMask) return "MetaMask";
+  return "Ethereum wallet";
 }
 
 const SEPOLIA_HEX = "0xaa36a7";

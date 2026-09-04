@@ -24,7 +24,7 @@ import {
 import { Button, Card, Disclosure, Spinner, StatusPill, Verdict } from "../components/ui";
 import { PAYOUT_RECORD_KEY, bytesToHex0x } from "../shared/ensPayout";
 import { ENS_CHAIN } from "../shared/ensClient";
-import { shortAddress } from "../shared/wallets";
+import { ethereumWalletName, shortAddress } from "../shared/wallets";
 import { isLikelyEnsName, useEnsIdentity } from "./ensIdentity";
 
 const ENS_APP = "https://app.ens.dev";
@@ -75,7 +75,7 @@ export function EnsIdentityPanel() {
           <>
             <span className="wallet-chip">
               <Wallet size={14} /> {shortAddress(ens.wallet)}
-              <small>Sepolia</small>
+              <small>{ethereumWalletName()} · Sepolia</small>
             </span>
             <span className={ens.viewing ? "wallet-chip wallet-chip--ok" : "wallet-chip"}>
               <KeyRound size={14} />
@@ -104,7 +104,7 @@ export function EnsIdentityPanel() {
               ? "Connecting"
               : ens.walletStatus === "signing"
                 ? "Sign in your wallet"
-                : "Connect Ethereum wallet"}
+                : `Connect ${ethereumWalletName()}`}
           </Button>
         )}
       </div>
