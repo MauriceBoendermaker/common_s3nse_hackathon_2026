@@ -153,7 +153,7 @@ export function ForBorrowersPage({ onNavigate }: { onNavigate: (view: SiteView) 
         eyebrow="Prepared applicant flow"
         title="Create the private request step by step."
         body="The marketplace makes public terms, proof status, offers, and lifecycle states explicit."
-        primary={{ view: "borrower", label: "Borrow" }}
+        primary={{ view: "borrower", label: "Request credit" }}
         secondary={{ view: "faq", label: "Read the FAQ" }}
         onNavigate={onNavigate}
       />

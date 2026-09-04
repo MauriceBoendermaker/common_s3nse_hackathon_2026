@@ -20,7 +20,7 @@ export type NavigationItem = {
 
 export const APP_NAVIGATION = [
   { view: "overview", label: "Market" },
-  { view: "borrower", label: "Borrow" },
+  { view: "borrower", label: "Request credit" },
   { view: "lender", label: "Lend" },
 ] satisfies Array<{ view: AppView; label: string }>;
 
@@ -71,7 +71,7 @@ const PATH_VIEWS = new Map(
 
 export const VIEW_TITLES: Record<SiteView, string> = {
   overview: "ZKredit — Marketplace",
-  borrower: "Borrow | ZKredit",
+  borrower: "Request credit | ZKredit",
   lender: "Lend | ZKredit",
   "how-it-works": "How it works | ZKredit",
   security: "Security & trust | ZKredit",

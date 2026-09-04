@@ -99,7 +99,7 @@ export function HowItWorksPage({ onNavigate }: { onNavigate: (view: SiteView) =>
         }
       >
         <RouteLink view="borrower" onNavigate={onNavigate} className="button button--primary">
-          <span>Borrow</span><span className="button__icon"><ArrowRight size={16} /></span>
+          <span>Request credit</span><span className="button__icon"><ArrowRight size={16} /></span>
         </RouteLink>
         <RouteLink view="security" onNavigate={onNavigate} className="text-link">
           Read the security model <ArrowRight size={15} />
