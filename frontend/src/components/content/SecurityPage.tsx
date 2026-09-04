@@ -65,15 +65,15 @@ const informationRows = [
 const assumptions = [
   {
     icon: <Waypoints size={20} />,
-    title: "ENS resolution by the payer \u2014 the softest edge here",
+    title: "ENS resolution by the payer \u2014 the weakest link",
     body:
-      "Nothing on Solana can read ENS. A settlement program has no way to check that a payout address was really derived from the borrower\u2019s privatecredit.payout-key[501] record; it will accept whatever address the payer\u2019s client supplies. Two things bound that, and neither is prevention. The payer is the party who wants a valid loan, so misdirecting the payout is against their own interest. And the borrower detects it immediately: their tab recomputes the address from the published R and shows the mismatch, and no funds arrive. This is detection after the fact, not enforcement, and it is the weakest link in the design.",
+      "Nothing on Solana can read ENS, so a settlement program accepts whatever payout address the payer supplies. The borrower\u2019s tab recomputes the address from the published R and shows a mismatch immediately, but that is detection after the fact, not prevention.",
   },
   {
     icon: <KeyRound size={20} />,
     title: "One-time keys are not compartmentalised",
     body:
-      "Full ERC-5564 stealth addresses separate a viewing key from a spending key, so scanning can be delegated without granting the ability to spend. This derives the whole one-time key from a single ECDH secret, which sidesteps ed25519 scalar arithmetic that standard Solana Keypair APIs will not do \u2014 at a real cost: whoever can scan can also spend. Unlinkability is unaffected; an observer without the viewing scalar still cannot connect two draws to one identity or either to the ENS name. What is lost is compartmentalisation, and that is a design trade, not an oversight.",
+      "The whole one-time key comes from a single ECDH secret, so whoever can scan can also spend. Unlinkability is unaffected \u2014 without the viewing scalar, two draws still cannot be tied together or to the ENS name. A deliberate trade to avoid ed25519 scalar arithmetic that Solana\u2019s Keypair APIs will not do.",
   },
   {
     icon: <HardDrive size={20} />,
@@ -88,17 +88,17 @@ const assumptions = [
   {
     icon: <Server size={20} />,
     title: "Our backend and passport proxy",
-    body: "The portfolio read is proxied through a server we operate. It sees the Solana address the applicant supplies, the balances and USD values read on their behalf, and request timing and IP metadata. Because it serves the passport, a malicious operator could return a snapshot that never existed. It is a single unaudited operator run by the project authors, with no signed attestation over what it returns.",
+    body: "The portfolio read goes through a server we run. It sees the address, the balances and USD values, and request timing and IP metadata \u2014 and could return a snapshot that never existed. One unaudited operator, no signed attestation over what it returns.",
   },
   {
     icon: <Code2 size={20} />,
     title: "Circuit and verifier",
-    body: "The proving circuit, parameters, and verifier must encode the stated policy and resist implementation errors. The circuit is 2 980 constraints with Num2Bits range checks on every value that reaches a comparator \u2014 without those it would be forgeable by field overflow while still appearing to work. The backend verifies with snarkjs against zk/build/verification_key.json and fails closed if that key is missing or differs from the copy the browser proved with.",
+    body: "2 980 constraints, with Num2Bits range checks on every value that reaches a comparator \u2014 without those the proof would be forgeable by field overflow. The backend verifies with snarkjs and fails closed if the verifying key is missing or differs from the one the browser proved with.",
   },
   {
     icon: <KeyRound size={20} />,
     title: "Trusted setup",
-    body: "A hackathon phase-2 ceremony: two contributions and a beacon, run by one person on one machine, transcript published at zk/build/ceremony-transcript.md. Whoever ran it holds toxic waste and could forge proofs that verify. This is not a real multi-party ceremony and must not be treated as one.",
+    body: "Two phase-2 contributions and a beacon, run by one person on one machine; transcript at zk/build/ceremony-transcript.md. Whoever ran it holds the toxic waste and could forge proofs that verify. Not a real multi-party ceremony.",
   },
   {
     icon: <ShieldCheck size={20} />,
@@ -108,15 +108,14 @@ const assumptions = [
 ];
 
 const limitations = [
-  "On-chain verification is proven to work and is not deployed. The Rust test in prototype/solana-verify/ takes this circuit\u2019s proof through groth16-solana and verifies it \u2014 including the negation of proof.A, without which it is rejected, and a tampered-input case that is correctly rejected. groth16-solana 0.2.0 is widely used and unaudited: only 0.0.1 was in the Light Protocol v3 audit. Nothing is deployed on any Solana cluster, so this is a claim about the credential being chain-portable, not about a live program.",
-  "The ENS payout leg does not claim standard compliance. The pending stealth-address ENSIP states that non-EVM scoping is out of scope, so this uses a custom record key (privatecredit.payout-key[501]) and deliberately does not reuse ERC-5564 schemeId 1, which is registered for secp256k1 and would misdescribe the curve in the payload. It is an early implementation of a direction ENS is standardising, not an implementation of a standard.",
-  "A valid claim describes one policy at one point in time; it does not prove future solvency.",
-  "A proof does not guarantee repayment, prevent liquidation, or replace independent underwriting.",
-  "The receipt is a BN254 Groth16 proof, produced by a Web Worker in the applicant’s browser and verified server-side against a committed verifying key. The trusted setup behind that key is a development ceremony run by one person on one machine — two phase-2 contributions and a published transcript, but whoever ran it could forge proofs. Treat the soundness guarantee as a demonstration, not a production one.",
-  "A zero-knowledge proof hides the witness—not public ENS records, transaction history, timing, IP, or request metadata.",
-  "The Solana address the snapshot was read from travels with the request in the provenance strip. It is not hidden from the capital provider.",
-  "Previously published or externally correlated information cannot be made private by generating a new proof.",
-  "Source outages, stale prices, unpriced mints, and an account age the bounded scan cannot establish produce an unavailable result rather than a pass or a fail.",
+  "On-chain verification works but is not deployed. The Rust test in prototype/solana-verify/ takes this proof through groth16-solana 0.2.0 (widely used, unaudited) and verifies it, rejecting tampered inputs. Nothing runs on any Solana cluster.",
+  "The ENS payout leg is not standard-compliant. The pending stealth-address ENSIP puts non-EVM chains out of scope, so this uses a custom record key and does not reuse ERC-5564 schemeId 1, which would misdescribe the curve.",
+  "A claim describes one policy at one point in time. It does not prove future solvency, guarantee repayment, or replace independent underwriting.",
+  "Soundness rests on a development trusted setup. Treat it as a demonstration, not a production guarantee.",
+  "A proof hides the witness — not public ENS records, transaction history, timing, IP, or request metadata.",
+  "The Solana address the snapshot was read from is visible to the capital provider in the provenance strip.",
+  "A new proof cannot make previously published or externally correlated information private again.",
+  "Source outages, stale prices, unpriced mints, and an account age the scan cannot establish produce an unavailable result, not a pass or a fail.",
 ];
 
 export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => void }) {
@@ -133,8 +132,8 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
     <div className="content-page">
       <ContentHero
         eyebrow="Security & trust"
-        title="Privacy is a boundary, not a slogan."
-        lead="ZKredit is designed to minimize what crosses from an applicant’s financial context to a capital provider. This page documents that boundary, the parties you still trust, and the limits a proof cannot remove."
+        title="Reliable credit with privacy as a core principle."
+        lead="This page documents what crosses from an applicant to a capital provider, who you still have to trust, and what a proof cannot do."
         aside={
           <div className="trust-scorecard">
             <span className="section-label">Prototype posture</span>
@@ -170,7 +169,7 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
       <ContentSection
         eyebrow="Disclosure boundary"
         title="The verification output is intentionally small"
-        intro="The existing product component below is the core promise. It does not mean every surrounding service is invisible."
+        intro="This is the core promise. It does not make the surrounding services invisible."
       >
         <div className="security-boundary-wrap"><PrivacyBoundary /></div>
       </ContentSection>
@@ -203,7 +202,7 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
       <ContentSection
         eyebrow="Trust model"
         title="What must still be trusted"
-        intro="Zero-knowledge reduces disclosure. It does not eliminate software, infrastructure, or counterparty trust. Several parties still have to behave \u2014 one of them is the server we run ourselves, and the first one listed is the payer resolving an ENS name that no chain can check for them."
+        intro="Zero-knowledge reduces disclosure. It does not remove software, infrastructure, or counterparty trust, including trust in the server we run ourselves."
       >
         <div className="trust-grid">
           {assumptions.map((assumption) => (
@@ -231,18 +230,18 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
       <ContentSection
         eyebrow="Retention and operators"
         title="Two tiers of data, held very differently"
-        intro="There is a backend now. What it holds and what it deliberately never receives are separate questions."
+        intro="What the backend holds, and what it never receives."
       >
         <div className="retention-grid">
           <article>
             <span><HardDrive size={18} /> Tier 0 · portfolio snapshot</span>
             <h3>Browser memory, and nowhere else</h3>
-            <p>The snapshot returned by the passport read—per-token balances, USD values, and the witness derived from them—lives in the applicant’s tab. It is never written to disk, never persisted by the backend, and no endpoint accepts it back. The published request carries a commitment and a provenance strip instead.</p>
+            <p>Per-token balances, USD values, and the witness derived from them stay in the applicant’s tab. Never written to disk, never persisted, and no endpoint accepts them back. The published request carries a commitment instead.</p>
           </article>
           <article>
             <span><Database size={18} /> Tier 1 · marketplace records</span>
             <h3>Deliberately public between the two parties</h3>
-            <p>Requests, policy challenges, proof receipts, offers, and the loan lifecycle live in an in-memory store inside the backend process. Both parties are meant to read them. They contain no portfolio values, there is no database and no user account, and everything is gone when the process restarts.</p>
+            <p>Requests, policy challenges, proof receipts, offers, and the loan lifecycle live in an in-memory store both parties are meant to read. No portfolio values, no database, no user accounts, and everything is gone when the process restarts.</p>
           </article>
           <article>
             <span><Cloud size={18} /> Service metadata</span>
@@ -253,19 +252,17 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
             <span><Code2 size={18} /> Prover worker · content security policy</span>
             <h3>Proving runs in a worker, and a CSP has to allow it</h3>
             <p>
-              The Groth16 prover is a Web Worker created once when the applicant workspace mounts. It
-              fetches <code>/zk/credit_policy.wasm</code> and <code>/zk/credit_policy.zkey</code> and keeps
-              them in worker memory, so the portfolio values are arguments to a worker in the same tab and
-              never enter a request body. A deployment that adds a Content-Security-Policy must allow{" "}
-              <code>worker-src blob:</code> and <code>&apos;wasm-unsafe-eval&apos;</code>: ffjavascript
-              spawns its own internal workers from blob URLs, and without those directives proving fails
-              with an error that points nowhere near the policy.
+              The Groth16 prover is a Web Worker in the same tab, so portfolio values are worker arguments
+              and never enter a request body. A deployment that adds a Content-Security-Policy must
+              allow <code>worker-src blob:</code> and <code>&apos;wasm-unsafe-eval&apos;</code> —
+              ffjavascript spawns its own workers from blob URLs, and without those directives proving
+              fails with an error that points nowhere near the policy.
             </p>
           </article>
           <article>
             <span><KeyRound size={18} /> Credentials</span>
             <h3>No secret belongs in the client</h3>
-            <p>The current portfolio path is keyless: public Solana RPC and Jupiter pricing need no vendor account. Any credential a production deployment adds must stay server-side, be scoped to its purpose, and never be embedded in a browser bundle or a proof receipt.</p>
+            <p>The portfolio path is keyless: public Solana RPC and Jupiter pricing need no vendor account. Any credential a production deployment adds stays server-side, never in a browser bundle or a proof receipt.</p>
           </article>
         </div>
       </ContentSection>
@@ -278,8 +275,8 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
           <FileWarning size={27} />
           <div>
             <h3>Experimental and unaudited</h3>
-            <p>Balances are read live from Solana mainnet. ENS names are resolved live on Sepolia \u2014 registry owner, resolver, addr and a direct text() read of the payout record \u2014 and the one-time payout addresses are derived in the browser from the key that read returns. The proof is a real BN254 Groth16 proof, generated in the applicant\u2019s browser and verified by the backend with snarkjs against the same verifying key the browser proved with. On-chain verification is proven to work in a local Rust test against groth16-solana 0.2.0 (widely used, unaudited) but <strong>nothing is deployed on any Solana cluster</strong>: settlement targets devnet and is not wired, so no program exists to call, no independent audit has been done, and no real funds move. The trusted setup is a development ceremony, not a real one.</p>
-            <p>What is enforced rather than illustrated: the passport commitment is published before the capital provider issues its policy challenge; the backend recomputes the policy hash instead of trusting the client, and so does the program, from its own stored account; receipts carry an expiry both the backend and the cluster clock check; and the nullifier is a program-derived account that gets created, so a second presentation of the same receipt is refused by the Solana runtime before a line of our code runs. That last one is the only guarantee in this project that requires trusting nobody at all.</p>
+            <p>Balances are read live from Solana mainnet, ENS names are resolved live on Sepolia, and the proof is a real BN254 Groth16 proof verified by the backend against the same verifying key the browser proved with. On-chain verification works in a local Rust test, but <strong>nothing is deployed on any Solana cluster</strong>: no program exists to call, no independent audit has been done, and no real funds move.</p>
+            <p>What is enforced rather than illustrated: the passport commitment is published before the provider issues its policy challenge; the backend recomputes the policy hash instead of trusting the client; receipts carry an expiry that is checked; and the nullifier is a program-derived account, so a second presentation of the same receipt is refused by the Solana runtime before any of our code runs.</p>
           </div>
           <span className="status-label status-label--warning">Prototype only</span>
         </div>
@@ -288,7 +285,7 @@ export function SecurityPage({ onNavigate }: { onNavigate: (view: SiteView) => v
       <PageCta
         eyebrow="Verify the boundary"
         title="See exactly what each side receives."
-        body="Run the prepared workflow, then review the broader financial and technical risks before treating any result as a credit decision."
+        body="Run the workflow, then read the risk disclosures before treating any result as a credit decision."
         primary={{ view: "borrower", label: "Open the market" }}
         secondary={{ view: "risk-disclosures", label: "Read risk disclosures" }}
         onNavigate={onNavigate}

@@ -56,8 +56,8 @@ export function ForBorrowersPage({ onNavigate }: { onNavigate: (view: SiteView) 
     <div className="content-page">
       <ContentHero
         eyebrow="For borrowers"
-        title="Ask for credit without handing over your portfolio."
-        lead="Prove the eligibility facts a capital provider needs, keep exact positions out of the request, and compare offers against one consistent set of public terms."
+        title="Borrow without revealing your wallet."
+        lead="Your balances, holdings, and transaction history never leave your browser. A provider gets a pass or fail on the thresholds they set, and nothing else."
         aside={
           <div className="audience-hero-card">
             <span className="audience-hero-card__icon"><LockKeyhole size={22} /></span>
@@ -166,8 +166,8 @@ export function ForCapitalProvidersPage({ onNavigate }: { onNavigate: (view: Sit
     <div className="content-page">
       <ContentHero
         eyebrow="For capital providers"
-        title="Underwrite the claim, not the applicant’s entire wallet history."
-        lead="Define a transparent policy, verify narrow eligibility results, and retain responsibility for every risk that a zero-knowledge proof does not cover."
+        title="Approve with zero knowledge."
+        lead="Set your thresholds, get a verified pass or fail on each one, and price the offer. You never see the applicant’s balances."
         aside={
           <div className="policy-preview-card">
             <span className="section-label">Example policy</span>
