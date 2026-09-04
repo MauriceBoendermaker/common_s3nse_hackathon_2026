@@ -24,7 +24,8 @@ import {
 import { Button, Card, Disclosure, Spinner, StatusPill, Verdict } from "../components/ui";
 import { PAYOUT_RECORD_KEY, bytesToHex0x } from "../shared/ensPayout";
 import { ENS_CHAIN } from "../shared/ensClient";
-import { ethereumWalletName, shortAddress } from "../shared/wallets";
+import { shortAddress } from "../shared/wallets";
+import { WalletPicker } from "./WalletPicker";
 import { isLikelyEnsName, useEnsIdentity } from "./ensIdentity";
 
 const ENS_APP = "https://app.ens.dev";
@@ -75,7 +76,7 @@ export function EnsIdentityPanel() {
           <>
             <span className="wallet-chip">
               <Wallet size={14} /> {shortAddress(ens.wallet)}
-              <small>{ethereumWalletName()} · Sepolia</small>
+              <small>{ens.walletName ?? "Ethereum"} · Sepolia</small>
             </span>
             <span className={ens.viewing ? "wallet-chip wallet-chip--ok" : "wallet-chip"}>
               <KeyRound size={14} />
@@ -94,18 +95,7 @@ export function EnsIdentityPanel() {
             ) : null}
           </>
         ) : (
-          <Button
-            type="button"
-            disabled={busy}
-            icon={busy ? <Spinner /> : <Wallet size={16} />}
-            onClick={() => void ens.connectWallet()}
-          >
-            {ens.walletStatus === "connecting"
-              ? "Connecting"
-              : ens.walletStatus === "signing"
-                ? "Sign in your wallet"
-                : `Connect ${ethereumWalletName()}`}
-          </Button>
+          <WalletPicker />
         )}
       </div>
 
@@ -185,14 +175,20 @@ export function EnsIdentityPanel() {
               above with the wallet that published it.
             </Verdict>
           ) : onChainKey ? (
-            <Verdict
-              tone="danger"
-              icon={<ShieldAlert size={15} />}
-              title="This name publishes a different key"
-            >
-              Payments would go to a key this wallet cannot recover. Replace the record with this
-              wallet&apos;s key, or connect the wallet that published it.
-            </Verdict>
+            <>
+              <Verdict
+                tone="danger"
+                icon={<ShieldAlert size={15} />}
+                title="This name publishes a different key"
+              >
+                The record was signed by another wallet
+                {resolution?.owner ? <> (the name is owned by {shortAddress(resolution.owner)})</> : null}.
+                Connect that wallet to keep the record, or replace it with this wallet&apos;s key.
+              </Verdict>
+              <div className="wallet-row">
+                <WalletPicker label="Switch to" />
+              </div>
+            </>
           ) : (
             <Verdict tone="warning" icon={<ShieldAlert size={15} />} title="No payout key published yet">
               One transaction from your wallet writes it to the resolver. Until then no lender can

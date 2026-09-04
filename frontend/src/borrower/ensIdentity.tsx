@@ -71,8 +71,10 @@ export type EnsIdentityStore = {
   wallet: Address | null;
   walletStatus: WalletStatus;
   walletError: string | null;
+  /** Which injected wallet the account came from ("MetaMask", "Phantom"). */
+  walletName: string | null;
   /** Connect, sign the viewing-key message, and look up the wallet's primary name. */
-  connectWallet: () => Promise<void>;
+  connectWallet: (walletId?: string) => Promise<void>;
   /** Re-sign the viewing-key message with the connected wallet. */
   signViewingKey: () => Promise<void>;
 
@@ -117,17 +119,18 @@ const EnsIdentityContext = createContext<EnsIdentityStore | null>(null);
  */
 const STORAGE_KEY = "pc.identity.v1";
 
-function readPersistedIdentity(): { wallet: Address | null; name: string } {
+function readPersistedIdentity(): { wallet: Address | null; walletName: string | null; name: string } {
   try {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return { wallet: null, name: "" };
-    const parsed = JSON.parse(raw) as { wallet?: string; name?: string };
+    if (!raw) return { wallet: null, walletName: null, name: "" };
+    const parsed = JSON.parse(raw) as { wallet?: string; walletName?: string; name?: string };
     return {
       wallet: parsed.wallet && /^0x[0-9a-fA-F]{40}$/.test(parsed.wallet) ? (parsed.wallet as Address) : null,
+      walletName: typeof parsed.walletName === "string" ? parsed.walletName : null,
       name: typeof parsed.name === "string" ? parsed.name : "",
     };
   } catch {
-    return { wallet: null, name: "" };
+    return { wallet: null, walletName: null, name: "" };
   }
 }
 
@@ -141,6 +144,7 @@ export function isLikelyEnsName(value: string): boolean {
 export function EnsIdentityProvider({ children }: { children: ReactNode }) {
   const [restored] = useState(() => readPersistedIdentity());
   const [wallet, setWallet] = useState<Address | null>(restored.wallet);
+  const [walletName, setWalletName] = useState<string | null>(restored.walletName);
   const [walletStatus, setWalletStatus] = useState<WalletStatus>(
     restored.wallet ? "connected" : "disconnected",
   );
@@ -165,11 +169,11 @@ export function EnsIdentityProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ wallet, name }));
+      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ wallet, walletName, name }));
     } catch {
       // Storage unavailable: identity simply does not survive a reload.
     }
-  }, [wallet, name]);
+  }, [wallet, walletName, name]);
 
   const setName = useCallback((next: string) => {
     setNameState(next);
@@ -241,17 +245,21 @@ export function EnsIdentityProvider({ children }: { children: ReactNode }) {
     }
   }, [wallet]);
 
-  const connectWallet = useCallback(async () => {
+  const connectWallet = useCallback(async (walletId?: string) => {
     setWalletStatus("connecting");
     setWalletError(null);
     let account: Address;
     try {
-      account = await connectEthereum();
+      const connected = await connectEthereum(walletId);
+      account = connected.account;
+      setWalletName(connected.walletName);
     } catch (cause) {
-      setWalletStatus("disconnected");
+      setWalletStatus(wallet ? "connected" : "disconnected");
       setWalletError(describeWalletError(cause));
       return;
     }
+    // A different account is a different identity: drop the old key.
+    if (wallet && wallet.toLowerCase() !== account.toLowerCase()) setViewing(null);
     setWallet(account);
 
     // The viewing key first: one prompt, right away.
@@ -270,7 +278,7 @@ export function EnsIdentityProvider({ children }: { children: ReactNode }) {
     if (back.ok && back.name) {
       await resolve(back.name);
     }
-  }, [resolve]);
+  }, [resolve, wallet]);
 
   const publishRecord = useCallback(async () => {
     setPublishError(null);
@@ -361,6 +369,7 @@ export function EnsIdentityProvider({ children }: { children: ReactNode }) {
       wallet,
       walletStatus,
       walletError,
+      walletName,
       connectWallet,
       signViewingKey,
       name: name.trim().toLowerCase(),
@@ -387,6 +396,7 @@ export function EnsIdentityProvider({ children }: { children: ReactNode }) {
     wallet,
     walletStatus,
     walletError,
+    walletName,
     connectWallet,
     signViewingKey,
     name,

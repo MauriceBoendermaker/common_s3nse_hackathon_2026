@@ -37,6 +37,8 @@ import {
 } from "../shared/ensPayout";
 import type { PayoutAnnouncement } from "../shared/protocol-types";
 import { useEnsIdentity } from "./ensIdentity";
+import { WalletPicker } from "./WalletPicker";
+import { shortAddress } from "../shared/wallets";
 
 type PayoutRecoveryProps = {
   requestId: string;
@@ -126,13 +128,13 @@ export function PayoutRecovery({ requestId, payouts }: PayoutRecoveryProps) {
               it. Sign again with the same wallet to recover every address below.
             </span>
           </div>
-          <Button
-            variant="secondary"
-            type="button"
-            onClick={() => void (ens.wallet ? ens.signViewingKey() : ens.connectWallet())}
-          >
-            {ens.wallet ? "Sign to re-derive" : "Connect wallet"}
-          </Button>
+          {ens.wallet ? (
+            <Button variant="secondary" type="button" onClick={() => void ens.signViewingKey()}>
+              Sign to re-derive
+            </Button>
+          ) : (
+            <WalletPicker />
+          )}
         </div>
       ) : (
         <ul className="payout-list">
@@ -202,12 +204,18 @@ export function PayoutRecovery({ requestId, payouts }: PayoutRecoveryProps) {
                   merely recognise it.
                 </p>
               ) : recovery.kind === "not-mine" ? (
-                <p className="provenance-note provenance-note--flag">
-                  The view tag recomputed from this tab&apos;s viewing key does not match the
-                  announced one, so this announcement was derived against a different payout key.
-                  That is the ordinary outcome when scanning somebody else&apos;s draws — and here it
-                  means the lender resolved a key this tab does not hold.
-                </p>
+                <>
+                  <p className="provenance-note provenance-note--flag">
+                    This tab&apos;s viewing key does not match the key published under{" "}
+                    {ens.name || announcement.ensName}. The lender paid to the key on chain, so sign
+                    the viewing-key message with the wallet that published it
+                    {ens.resolution?.owner ? <> ({shortAddress(ens.resolution.owner)})</> : null}.
+                    {ens.walletName ? <> This tab is currently signed with {ens.walletName}.</> : null}
+                  </p>
+                  <div className="wallet-row">
+                    <WalletPicker label="Sign with" />
+                  </div>
+                </>
               ) : recovery.kind === "mismatch" ? (
                 <p className="provenance-note provenance-note--flag">
                   The view tag matched but the address does not. The announced address is not the one

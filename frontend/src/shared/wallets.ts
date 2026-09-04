@@ -91,40 +91,71 @@ if (typeof window !== "undefined") {
   window.dispatchEvent(new Event("eip6963:requestProvider"));
 }
 
+export type EthereumWalletChoice = { id: string; name: string; provider: Eip1193Provider };
+
 /**
- * The Ethereum wallet to use for the ENS identity. MetaMask when present.
- *
- * Phantom also injects an EVM provider and, by default, installs itself as
- * `window.ethereum`, so the naive lookup opens Phantom on a machine that has
- * both. EIP-6963 announcements identify wallets by reverse-DNS, which is the
- * only reliable way to tell them apart; the legacy `providers` array and the
- * `isPhantom` flag are the fallbacks for older wallets.
+ * Every injected Ethereum wallet the page can see, MetaMask first. Phantom
+ * also ships an EVM wallet and by default installs itself as
+ * `window.ethereum`, so a machine with both would otherwise always land in
+ * Phantom. EIP-6963 announcements identify wallets by reverse-DNS; the legacy
+ * `providers` array and the `isPhantom` flag cover older wallets.
  */
-export function getEthereum(): Eip1193Provider | null {
-  if (typeof window === "undefined") return null;
-  const metamask = announced.find((row) => row.info.rdns === "io.metamask");
-  if (metamask) return metamask.provider;
-  const notPhantom = announced.find((row) => row.info.rdns !== "app.phantom");
-  if (notPhantom) return notPhantom.provider;
+export function listEthereumWallets(): EthereumWalletChoice[] {
+  if (typeof window === "undefined") return [];
+  const out: EthereumWalletChoice[] = announced.map((row) => ({
+    id: row.info.rdns,
+    name: row.info.name,
+    provider: row.provider,
+  }));
   const root = window.ethereum;
-  if (!root) return announced[0]?.provider ?? null;
-  const candidates = root.providers ?? [root];
-  return (
-    candidates.find((p) => p.isMetaMask && !p.isPhantom) ??
-    candidates.find((p) => !p.isPhantom) ??
-    root
-  );
+  if (root) {
+    for (const provider of root.providers ?? [root]) {
+      if (out.some((row) => row.provider === provider)) continue;
+      out.push({
+        id: provider.isPhantom ? "app.phantom" : provider.isMetaMask ? "io.metamask" : "injected",
+        name: provider.isPhantom ? "Phantom" : provider.isMetaMask ? "MetaMask" : "Ethereum wallet",
+        provider,
+      });
+    }
+  }
+  const rank = (row: EthereumWalletChoice) =>
+    row.id === "io.metamask" ? 0 : row.id === "app.phantom" ? 2 : 1;
+  return out.sort((a, b) => rank(a) - rank(b));
 }
 
-/** Human name of the wallet `getEthereum()` resolves to, for the UI chip. */
-export function ethereumWalletName(): string {
-  const provider = getEthereum();
+/** The wallet to use: an explicit choice, else MetaMask, else whatever exists. */
+export function getEthereum(walletId?: string | null): Eip1193Provider | null {
+  const wallets = listEthereumWallets();
+  if (walletId) {
+    const chosen = wallets.find((row) => row.id === walletId);
+    if (chosen) return chosen.provider;
+  }
+  return wallets[0]?.provider ?? null;
+}
+
+/**
+ * The wallet that currently holds `account` among its connected accounts.
+ * `eth_accounts` never prompts, so this is safe to call on every render path;
+ * it is how a reloaded tab signs again with the same wallet it used before,
+ * instead of whichever wallet happens to be first in the list.
+ */
+export async function providerForAccount(account: Address): Promise<Eip1193Provider | null> {
+  const wanted = account.toLowerCase();
+  for (const wallet of listEthereumWallets()) {
+    try {
+      const accounts = (await wallet.provider.request({ method: "eth_accounts" })) as string[];
+      if (accounts.some((row) => row.toLowerCase() === wanted)) return wallet.provider;
+    } catch {
+      // A wallet that refuses eth_accounts is simply not the one.
+    }
+  }
+  return null;
+}
+
+/** Human name for the wallet a provider belongs to, for the UI chip. */
+export function ethereumWalletName(provider: Eip1193Provider | null): string {
   if (!provider) return "Ethereum wallet";
-  const match = announced.find((row) => row.provider === provider);
-  if (match) return match.info.name;
-  if (provider.isPhantom) return "Phantom (EVM)";
-  if (provider.isMetaMask) return "MetaMask";
-  return "Ethereum wallet";
+  return listEthereumWallets().find((row) => row.provider === provider)?.name ?? "Ethereum wallet";
 }
 
 const SEPOLIA_HEX = "0xaa36a7";
@@ -155,9 +186,11 @@ async function ensureSepolia(provider: Eip1193Provider): Promise<void> {
   }
 }
 
-/** Connect an EIP-1193 wallet and make sure it is on Sepolia. */
-export async function connectEthereum(): Promise<Address> {
-  const provider = getEthereum();
+/** Connect the chosen EIP-1193 wallet and make sure it is on Sepolia. */
+export async function connectEthereum(
+  walletId?: string | null,
+): Promise<{ account: Address; walletName: string }> {
+  const provider = getEthereum(walletId);
   if (!provider) {
     throw new WalletError(
       "No Ethereum wallet found. Install MetaMask (or another EIP-1193 wallet) and reload.",
@@ -167,12 +200,16 @@ export async function connectEthereum(): Promise<Address> {
   const account = accounts[0];
   if (!account) throw new WalletError("The wallet returned no account.");
   await ensureSepolia(provider);
-  return account as Address;
+  return { account: account as Address, walletName: ethereumWalletName(provider) };
 }
 
-/** `personal_sign` over a UTF-8 message. Deterministic per wallet (RFC 6979). */
+/**
+ * `personal_sign` over a UTF-8 message, by the wallet that holds `account`.
+ * Deterministic per wallet (RFC 6979), so the same account always yields the
+ * same viewing key — which is only true if the SAME wallet signs.
+ */
 export async function personalSign(message: string, account: Address): Promise<Hex> {
-  const provider = getEthereum();
+  const provider = (await providerForAccount(account)) ?? getEthereum();
   if (!provider) throw new WalletError("No Ethereum wallet found.");
   const signature = (await provider.request({
     method: "personal_sign",
@@ -207,7 +244,7 @@ export async function setEnsTextRecord(input: {
   key: string;
   value: string;
 }): Promise<Hex> {
-  const provider = getEthereum();
+  const provider = (await providerForAccount(input.account)) ?? getEthereum();
   if (!provider) throw new WalletError("No Ethereum wallet found.");
   await ensureSepolia(provider);
   const wallet = createWalletClient({
