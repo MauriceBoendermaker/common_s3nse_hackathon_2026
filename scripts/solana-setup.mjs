@@ -32,7 +32,9 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
+  SystemProgram,
   Transaction,
+  sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -95,11 +97,41 @@ function vkHashHex() {
   return JSON.parse(fs.readFileSync(file, "utf8")).vkHashHex;
 }
 
-async function ensureFunded(connection, cluster, keypair, role, wantSol) {
+async function ensureFunded(connection, cluster, keypair, role, wantSol, funder = null) {
   const lamports = await connection.getBalance(keypair.publicKey, "confirmed");
   const sol = lamports / LAMPORTS_PER_SOL;
   if (sol >= wantSol) {
     console.log(`  ${role.padEnd(9)} ${keypair.publicKey.toBase58()}  ${sol.toFixed(4)} SOL`);
+    return sol;
+  }
+
+  // Public devnet/testnet faucets are rate-limited and routinely 429. When a
+  // funder key with a surplus is available, move SOL from it instead; the
+  // faucet is only asked on a local validator, where it always answers.
+  if (cluster !== "localnet" && funder) {
+    const funderSol = (await connection.getBalance(funder.publicKey, "confirmed")) / LAMPORTS_PER_SOL;
+    const need = wantSol - sol;
+    if (funderSol - need < 0.5) {
+      console.log(
+        `  ${role.padEnd(9)} ${keypair.publicKey.toBase58()}  ${sol.toFixed(4)} SOL  ` +
+          `(not topped up: funder holds ${funderSol.toFixed(4)} SOL)`,
+      );
+      return sol;
+    }
+    const transfer = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: funder.publicKey,
+        toPubkey: keypair.publicKey,
+        lamports: Math.ceil(need * LAMPORTS_PER_SOL),
+      }),
+    );
+    await sendAndConfirmTransaction(connection, transfer, [funder], { commitment: "confirmed" });
+    const after = (await connection.getBalance(keypair.publicKey, "confirmed")) / LAMPORTS_PER_SOL;
+    console.log(`  ${role.padEnd(9)} ${keypair.publicKey.toBase58()}  ${after.toFixed(4)} SOL  (from deployer)`);
+    return after;
+  }
+  if (cluster !== "localnet") {
+    console.log(`  ${role.padEnd(9)} ${keypair.publicKey.toBase58()}  ${sol.toFixed(4)} SOL  (fund it from a faucet)`);
     return sol;
   }
 
@@ -144,8 +176,8 @@ async function main() {
 
   console.log("balances:");
   const deployerSol = await ensureFunded(connection, cluster, deployer, "deployer", 3);
-  const lenderSol = await ensureFunded(connection, cluster, lender, "lender", 2);
-  const borrowerSol = await ensureFunded(connection, cluster, borrower, "borrower", 1);
+  const lenderSol = await ensureFunded(connection, cluster, lender, "lender", 2, deployer);
+  const borrowerSol = await ensureFunded(connection, cluster, borrower, "borrower", 1, deployer);
   console.log("");
 
   if (deployerSol + lenderSol + borrowerSol === 0) {
