@@ -48,25 +48,25 @@ export function PrivacyPage({ onNavigate }: { onNavigate: (view: SiteView) => vo
     <LegalLayout
       eyebrow="Legal · Privacy"
       title="Privacy notice"
-      lead="This notice describes the current hackathon prototype—not a production service with user accounts, lending operations, or persistent portfolio storage."
+      lead="This notice describes the current hackathon prototype—not a production service with user accounts, lending operations, or persistent portfolio storage. It does read real balances from a public blockchain for an address you supply, so read section 2."
       icon={<ShieldCheck size={28} />}
       onNavigate={onNavigate}
     >
       <section>
         <h2>1. Prototype scope</h2>
-        <p>Private Credit is an experimental frontend created for Common S3nse 2026. Wallet connections, portfolio sources, zero-knowledge proof generation, verification, offers, and settlement are simulated. No real loan application is submitted and no funds move onchain.</p>
+        <p>Private Credit is an experimental application created for Common S3nse 2026. Wallet connections, zero-knowledge proving, on-chain verification, and settlement are not implemented; no real loan application is submitted and no funds move onchain. Portfolio balances, by contrast, are read for real from Solana mainnet, and the marketplace records that pass between the two parties are held by a backend we operate.</p>
       </section>
       <section>
         <h2>2. Information used in the demo</h2>
-        <p>The prepared scenario uses fixture ENS identities, shortened wallet addresses, portfolio values, claim results, proof identifiers, policies, and loan terms. Information entered through the interface is used to update the current in-memory demonstration state.</p>
+        <p>The address you supply is sent to our backend, which reads its balances from Solana mainnet RPC and prices them through Jupiter. That address, the values read for it, and the timing and network metadata of the request are visible to us. The resulting snapshot is returned to your browser and no endpoint accepts it back. Identities, policies, offers, and loan terms shown alongside it are demonstration values.</p>
       </section>
       <section>
         <h2>3. Storage and retention</h2>
-        <p>The prototype does not provide user accounts or a production database. Demo state is kept in the browser session and can be cleared by resetting or reloading. This statement does not override logs that a hosting platform, browser, network, or development environment may retain.</p>
+        <p>Two tiers. The portfolio snapshot and the witness derived from it exist only in your browser’s memory: they are never persisted and never sent back to the backend. The marketplace records—requests, policy challenges, proof receipts, offers, and loan lifecycle states—are kept in an in-memory store inside the backend process, are deliberately readable by both parties, contain no portfolio values, and are lost when the process restarts. There is no user account and no database. This does not override logs that a hosting platform, browser, network, or development environment may retain.</p>
       </section>
       <section>
         <h2>4. Public and third-party visibility</h2>
-        <p>ENS records and blockchain transactions are public. In a live implementation, wallet, RPC, hosting, analytics, and portfolio providers could observe public identifiers, IP addresses, timestamps, request metadata, and query patterns even when proof inputs are hidden from a capital provider.</p>
+        <p>ENS records and blockchain transactions are public. The backend we operate, the Solana RPC endpoints it calls, the Jupiter price API, and any hosting or analytics layer can observe public identifiers, IP addresses, timestamps, request metadata, and query patterns even when portfolio values are hidden from a capital provider. The Solana address a snapshot was read from also travels with the published request, in the provenance strip.</p>
       </section>
       <section>
         <h2>5. No promise of anonymity</h2>
@@ -99,7 +99,7 @@ export function TermsPage({ onNavigate }: { onNavigate: (view: SiteView) => void
       </section>
       <section>
         <h2>2. Experimental status</h2>
-        <p>The software is incomplete, unaudited, and subject to change. Proofs, verifications, balances, identities, contract references, signatures, offers, and lifecycle states displayed by the interface may be simulated or fixture data.</p>
+        <p>The software is incomplete, unaudited, and subject to change. Balances are read live from Solana mainnet, ENS names are resolved live on Sepolia, and requests, challenges, receipts, offers, and lifecycle states are real records in a backend store. The receipt is a real BN254 Groth16 proof, generated in the browser and verified by the backend, produced under a development trusted setup rather than a real ceremony — whoever ran that ceremony could forge proofs that verify. One-time payout addresses are really derived from the applicant's ENS payout record, but no Solana program is deployed, no funds move, and wallet confirmations are simulated.</p>
       </section>
       <section>
         <h2>3. No financial, legal, or tax advice</h2>
@@ -137,11 +137,11 @@ export function RiskDisclosuresPage({ onNavigate }: { onNavigate: (view: SiteVie
       <div className="legal-alert"><Scale size={21} /><p><strong>Important:</strong> this is a non-exhaustive educational summary for an unaudited prototype, not a substitute for professional due diligence.</p></div>
       <section>
         <h2>1. Credit and liquidity risk</h2>
-        <p>Borrowers may be unable to repay. Capital providers may lose some or all deployed capital. A passing eligibility proof cannot predict future asset values, leverage, cash flow, fraud, liquidation, or willingness to repay.</p>
+        <p>Borrowers may be unable to repay. Capital providers may lose some or all deployed capital. A passing eligibility proof cannot predict future asset values, borrowing, cash flow, fraud, liquidation, or willingness to repay. The claims measured here describe what a portfolio holds; they say nothing about what is owed against it, which is not read at all.</p>
       </section>
       <section>
         <h2>2. Proof-system risk</h2>
-        <p>Circuit, witness, setup, parameter, cryptographic, verifier, or integration defects could produce incorrect or unverifiable results. The current proof experience is simulated and has not been independently audited.</p>
+        <p>Circuit, witness, setup, parameter, cryptographic, verifier, or integration defects could produce incorrect or unverifiable results. Zero-knowledge proofs are generated in the browser and verified by the backend, but under a development trusted setup: two phase-2 contributions on one machine, so whoever ran the ceremony could forge proofs. Nothing here has been independently audited.</p>
       </section>
       <section>
         <h2>3. Smart-contract and wallet risk</h2>
@@ -149,11 +149,11 @@ export function RiskDisclosuresPage({ onNavigate }: { onNavigate: (view: SiteVie
       </section>
       <section>
         <h2>4. Data, valuation, and oracle risk</h2>
-        <p>Provider data may be stale, incomplete, duplicated, manipulated, unavailable, or valued differently from authoritative chain state. Unsupported assets and positions must remain unknown rather than being assumed absent.</p>
+        <p>Provider data may be stale, incomplete, duplicated, manipulated, unavailable, or valued differently from authoritative chain state. Prices come from a single quote source and thin-liquidity mints are unreliable. Only allowlisted mints are counted, so a portfolio can be worth far more than the figure the claims are computed over. Unsupported assets and positions remain unknown rather than being assumed absent. Nothing in this build attests that the address supplied belongs to the applicant.</p>
       </section>
       <section>
         <h2>5. Privacy and metadata risk</h2>
-        <p>Public ENS records, transaction graphs, timing, IP addresses, request terms, proof reuse, and provider queries can support correlation. Zero-knowledge protection of a witness is not equivalent to network anonymity or deletion of historical exposure.</p>
+        <p>Public ENS records, transaction graphs, timing, IP addresses, request terms, proof reuse, and provider queries can support correlation. The backend that proxies the portfolio read sees both the address and the values read for it, and that address is published with the request in the provenance strip. Zero-knowledge protection of a witness is not equivalent to network anonymity or deletion of historical exposure.</p>
       </section>
       <section>
         <h2>6. Counterparty and operational risk</h2>
@@ -165,7 +165,7 @@ export function RiskDisclosuresPage({ onNavigate }: { onNavigate: (view: SiteVie
       </section>
       <section>
         <h2>8. Prototype risk</h2>
-        <p>All major actions are simulated. Interface states may not represent the failure modes, latency, costs, finality, or adversarial conditions of a real deployment.</p>
+        <p>Wallet actions, proving, on-chain verification, and settlement are not implemented, and the backend is a single unaudited process operated by the project authors. Interface states may not represent the failure modes, latency, costs, finality, or adversarial conditions of a real deployment.</p>
       </section>
     </LegalLayout>
   );

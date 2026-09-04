@@ -23,17 +23,17 @@ const journey = [
   },
   {
     title: "Assemble a private passport",
-    body: "Selected portfolio and lending sources are normalized into a private snapshot for the requested policy.",
+    body: "The applicant supplies a Solana address. Balances for the allowlisted mints are read from mainnet, priced, and reduced to a private snapshot. The commitment over that snapshot is published before any policy is issued.",
     boundary: "Private inputs",
   },
   {
     title: "Issue an underwriting challenge",
-    body: "The capital provider defines thresholds for assets, leverage, account history, and restricted exposure.",
+    body: "The capital provider defines thresholds for assets, collateral quality, account history, and restricted exposure. The backend recomputes the policy hash rather than trusting the client.",
     boundary: "Public policy",
   },
   {
     title: "Generate a sealed result",
-    body: "The intended ZK flow evaluates the private witness and produces claim results without disclosing exact values.",
+    body: "The four comparisons happen inside a Groth16 circuit, proved by a Web Worker in the applicant’s browser. Seven public signals and a ~1.2 KB proof are published; the values behind them are not.",
     boundary: "Proof layer",
   },
   {
@@ -55,8 +55,8 @@ const boundaries = [
     title: "Where the witness belongs",
     items: [
       "Wallet consent and signatures",
-      "Raw balances, positions, and debt",
-      "Witness construction and policy evaluation",
+      "The raw snapshot, held in browser memory only",
+      "Witness construction and policy evaluation, in the browser",
     ],
   },
   {
@@ -64,8 +64,8 @@ const boundaries = [
     label: "Offchain",
     title: "Where services coordinate",
     items: [
-      "Portfolio and lending data queries",
-      "Request discovery and offer delivery",
+      "The portfolio read itself, proxied through our backend",
+      "Requests, challenges, receipts, and offer delivery",
       "Hosting, RPC, and provider metadata",
     ],
   },
@@ -94,7 +94,7 @@ export function HowItWorksPage({ onNavigate }: { onNavigate: (view: SiteView) =>
             <span className="section-label">Verification output</span>
             <strong>4 claims</strong>
             <p>Pass or fail, bound to one policy and one snapshot.</p>
-            <span className="mono-value">{PRODUCT_CONFIG.borrower.proofId}</span>
+            <span className="mono-value">groth16-bn254</span>
           </div>
         }
       >
@@ -128,7 +128,7 @@ export function HowItWorksPage({ onNavigate }: { onNavigate: (view: SiteView) =>
       <ContentSection
         eyebrow="Data flow"
         title="Raw data stops before the lender"
-        intro="This diagram describes the intended architecture. The current hackathon frontend demonstrates the interaction with fixture data."
+        intro="The snapshot is real and the values in it are read from Solana mainnet. What crosses to the capital provider is a commitment, four outcomes, and a provenance strip—never the numbers behind them."
       >
         <div className="data-flow" aria-label="Private credit data flow">
           <div className="data-flow__node">
@@ -165,7 +165,7 @@ export function HowItWorksPage({ onNavigate }: { onNavigate: (view: SiteView) =>
       <ContentSection
         eyebrow="Execution boundaries"
         title="What happens where"
-        intro="Privacy depends on the full path—not only the proof payload."
+        intro="Privacy depends on the full path—not only the proof payload. Evaluation is local, but the read that feeds it is not: the balance and price calls go through a server we operate, which therefore sees the address and the values."
       >
         <div className="boundary-grid">
           {boundaries.map((boundary) => (
@@ -194,12 +194,12 @@ export function HowItWorksPage({ onNavigate }: { onNavigate: (view: SiteView) =>
           <article>
             <Network size={24} />
             <div><span className="section-label">Portfolio data</span><h3>Private underwriting input</h3></div>
-            <p>Supplies the evidence needed for a point-in-time claim. Providers may still observe queries and request metadata.</p>
+            <p>One source: Solana mainnet RPC for balances and Jupiter for prices, both keyless and neither requiring a vendor account. Nine allowlisted mints count—wSOL, USDC, USDT, JitoSOL, mSOL, bSOL, JupSOL, WBTC, WETH—and that list is committed in the repository. Account age comes from a bounded signature scan that reports “cannot establish” rather than guessing.</p>
           </article>
           <article>
             <ShieldCheck size={24} />
-            <div><span className="section-label">Zero knowledge</span><h3>Minimal verification output</h3></div>
-            <p>Proves that stated thresholds passed. It does not guarantee repayment, future solvency, or the correctness of source data.</p>
+            <div><span className="section-label">Proof layer</span><h3>Minimal verification output</h3></div>
+            <p>Discloses one outcome per claim and nothing else. In this build the comparisons are evaluated in the browser and only their results are published; the Groth16 circuit that makes the hiding cryptographic is the next workstream. Either way it does not guarantee repayment, future solvency, or the correctness of the source data.</p>
           </article>
         </div>
       </ContentSection>
@@ -208,7 +208,7 @@ export function HowItWorksPage({ onNavigate }: { onNavigate: (view: SiteView) =>
         <span className="prototype-banner__mark">DEMO</span>
         <div>
           <strong>Current prototype boundary</strong>
-          <p>The UI simulates wallet actions, portfolio inputs, proof generation, verification, offers, and settlement. No proof or funds move onchain.</p>
+          <p>Balances are read live from Solana mainnet, ENS names are resolved live on Sepolia, and every request, challenge, receipt, offer, and lifecycle change is a real call against the marketplace backend. The proof is a real BN254 Groth16 proof produced in the browser and verified server-side, and each payout address is really derived from the X25519 key in the applicant's ENS payout record. Not wired yet: on-chain verification and settlement, both of which target Solana devnet, and no program is deployed. The trusted setup is a development ceremony, wallet confirmations are simulated, and no funds move.</p>
         </div>
       </aside>
 

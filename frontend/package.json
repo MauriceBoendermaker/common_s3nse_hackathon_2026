@@ -10,11 +10,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fontsource/ibm-plex-mono": "^5.2.0",
     "@fontsource-variable/instrument-sans": "^5.2.0",
+    "@fontsource/ibm-plex-mono": "^5.2.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "lucide-react": "^0.468.0",
+    "poseidon-lite": "^0.3.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "snarkjs": "0.7.6",
+    "viem": "^2.56.3"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

@@ -1,0 +1,34 @@
+{
+  "circuit": "credit_policy",
+  "circomVersion": "circom compiler 2.2.3",
+  "generatedAt": "2026-09-03T22:04:00.087Z",
+  "nPublic": 7,
+  "nPublicOutputs": 2,
+  "nPublicInputs": 5,
+  "nPrivateInputs": 11,
+  "constraints": {
+    "nonLinear": 1390,
+    "linear": 1590,
+    "total": 2980,
+    "r1cs": 2980
+  },
+  "order": [
+    "passportCommitment",
+    "eligible",
+    "policyHash",
+    "subjectCommitment",
+    "expiry",
+    "nullifier",
+    "verifierCommitment"
+  ],
+  "artifacts": {
+    "wasmSha256": "7e0633a4ab336629bf3d8a4b395bd6490161d2d45a6d135be04f35b396f29239",
+    "zkeySha256": "9ded0bf090f72f748f50382fc96a248279acb0977e596464bdf23a718150c488",
+    "vkeySha256": "251cf26a7971932a09d69657cab4013b57a92e978d61d5e73727c20049c6a1c5"
+  },
+  "ceremony": {
+    "kind": "development",
+    "trusted": false,
+    "note": "Development setup run by one person on one machine. Whoever ran it could forge proofs. See zk/build/ceremony-transcript.md."
+  }
+}

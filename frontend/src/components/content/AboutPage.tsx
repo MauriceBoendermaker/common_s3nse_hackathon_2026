@@ -35,7 +35,7 @@ export function AboutPage({ onNavigate }: { onNavigate: (view: SiteView) => void
       <ContentSection eyebrow="Mission" title="Turn disclosure into verification">
         <div className="mission-statement">
           <blockquote>“A lender should learn whether a policy is satisfied—not receive every number used to answer it.”</blockquote>
-          <p>The project combines a portable ENS identity, private portfolio evidence, and policy-bound claim results in one end-to-end borrower and capital-provider journey.</p>
+          <p>The project combines a portable ENS identity, private portfolio evidence read from Solana mainnet, and policy-bound claim results in one end-to-end borrower and capital-provider journey.</p>
         </div>
       </ContentSection>
 
@@ -70,8 +70,8 @@ export function AboutPage({ onNavigate }: { onNavigate: (view: SiteView) => void
       <ContentSection eyebrow="Hackathon context" title="Built to make the boundary demonstrable">
         <div className="hackathon-grid">
           <article><strong>Common S3nse 2026</strong><p>The prototype is a focused hackathon submission—not a launched lending service.</p></article>
-          <article><strong>Two-sided experience</strong><p>Borrower and provider decisions are shown in the same reproducible scenario.</p></article>
-          <article><strong>Open repository</strong><p>The source and product status can be inspected directly rather than inferred from marketing claims.</p></article>
+          <article><strong>Two-sided experience</strong><p>Borrower and provider run as separate clients against one marketplace backend, so the boundary between them is enforced rather than described.</p></article>
+          <article><strong>Open repository</strong><p>The source, the mint allowlist and denylist, and the current product status can be inspected directly rather than inferred from marketing claims.</p></article>
         </div>
       </ContentSection>
 

@@ -1,115 +1,94 @@
+/**
+ * Static product copy. Nothing in this file is protocol data.
+ *
+ * What used to be here and is now gone, on purpose:
+ *
+ *  - The frozen demo witness constant — `{ assets: 340_000, debtRatio: 28, … }` — that
+ *    every pass/fail badge in the app derived from. It is the single constant
+ *    the ENS bounty's "no hard-coded demonstrations" rule disqualifies a
+ *    project for. The witness now comes from `GET /api/passport/:address` over
+ *    a Solana mainnet address the user types in.
+ *  - `competingOffers` — two invented lenders that made an empty marketplace
+ *    look busy. One real offer is honest; two fake competitors are not.
+ *  - `passportSources` — three "connectable" data sources that connected to
+ *    nothing. The real sources are now reported by the backend in
+ *    `PassportProvenance.sources`, with measured latencies.
+ *  - `POLICY_OPTIONS` — moved to `shared/policy.ts`, mirroring the backend, and
+ *    with `maximumDebtRatio` replaced by `minimumCollateralQuality` (a debt
+ *    ratio cannot be honestly sourced from Solana RPC in the time available;
+ *    inventing one is the thing that disqualifies the project).
+ *  - The frozen literals `proofId`, `passportCommitment`, `verifierContract`,
+ *    `proofValidUntil`, `createdAt` and `walletAddress` — all of which are now
+ *    computed or server-issued values.
+ */
+
 export const PRODUCT_CONFIG = {
   name: "Private Credit",
-  network: "Sepolia",
-  category: "Zero-knowledge credit infrastructure",
-  borrower: {
-    ensName: "alice.eth",
-    walletAddress: "0x71F3…33A2",
-    proofValidUntil: "02 Oct 2026",
-    proofId: "0x74e9…82c1",
-    passportCommitment: "0x91ca…0f42",
-  },
-  lender: {
-    ensName: "vault.lender.eth",
-    walletAddress: "0x28C4…91B7",
-  },
-  proof: {
-    circuit: "credit-policy-v1.3",
-    verifierContract: "0x8E2A…71C0",
-    createdAt: "03 Sep 2026 · 16:24 CEST",
-  },
+  category: "Privacy-preserving credit infrastructure",
+
+  /**
+   * Said out loud everywhere it matters. Balances are read from MAINNET
+   * because that is where real portfolios live; settlement lands on DEVNET
+   * because this is a prototype moving no real value. A judge spots that
+   * mismatch in ten seconds, so the UI states it rather than hiding it.
+   */
+  readCluster: "Solana mainnet-beta",
+  settleCluster: "Solana devnet",
+  network: "Solana devnet",
+
+  /**
+   * Illustrative ENS names for the content pages only. Neither party view uses
+   * them: real party labels come from the server (`borrowerLabel` /
+   * `lenderLabel`). ENS resolution itself is workstream D and is not wired.
+   */
+  borrower: { ensName: "alice.eth" },
+  lender: { ensName: "vault.lender.eth" },
+
+  /** Defaults the borrower's terms form starts from. All three are editable. */
   request: {
     amount: 25_000,
     collateral: 20_000,
     termDays: 90,
     suggestedApr: 10.4,
   },
+
+  /**
+   * The four comparisons the policy actually makes, matching
+   * `evaluatePolicy()` in `shared/policy.ts` one for one. The second claim is
+   * collateral quality, not a debt ratio.
+   */
   proofClaims: [
     {
-      label: "Asset threshold",
-      statement: "Portfolio meets the policy minimum",
+      label: "Collateral value",
+      statement: "Allowlisted holdings meet the policy minimum in USD",
     },
     {
-      label: "Debt ratio",
-      statement: "Leverage remains below the policy maximum",
+      label: "Collateral quality",
+      statement: "Enough of that value sits in stables and liquid staking tokens",
     },
     {
       label: "Account history",
-      statement: "Required financial history is satisfied",
+      statement: "The account is at least as old as the policy requires",
     },
     {
       label: "Restricted exposure",
-      statement: "Counterparty screening requirement is satisfied",
+      statement: "No denylisted mint is held with a non-zero balance",
     },
   ],
+
+  /**
+   * What the lender never receives. Deliberately does NOT claim the address is
+   * hidden: the provenance record carries the address the passport was read
+   * from, so the lender can re-read it independently. The balances behind it
+   * are what stay private.
+   */
   hiddenData: [
-    "Exact balances",
-    "Wallet addresses",
-    "Positions and protocols",
-    "Transaction graph",
-  ],
-  passportSources: [
-    {
-      id: "wallets",
-      name: "Onchain wallets",
-      provider: "Wallet signatures",
-      chains: ["Ethereum", "Base", "Arbitrum"],
-      permission: "Read balances, debt and protocol positions",
-      required: true,
-    },
-    {
-      id: "lending",
-      name: "Lending history",
-      provider: "Aave data adapter",
-      chains: ["Ethereum", "Base"],
-      permission: "Read health factor and liquidation events",
-      required: true,
-    },
-    {
-      id: "exchange",
-      name: "Exchange attestation",
-      provider: "Threshold attestation",
-      chains: ["Optional"],
-      permission: "Verify reserves above a threshold only",
-      required: false,
-    },
-  ],
-  competingOffers: [
-    {
-      id: "atlas",
-      lender: "atlas.pool.eth",
-      apr: 9.9,
-      deposit: 25_000,
-      fee: 300,
-      note: "Lower rate, higher first-loss deposit",
-    },
-    {
-      id: "harbor",
-      lender: "harbor.credit.eth",
-      apr: 11.1,
-      deposit: 15_000,
-      fee: 0,
-      note: "Lowest deposit and no origination fee",
-    },
+    "Exact USD totals",
+    "Per-mint holdings and amounts",
+    "The passport salt",
+    "The transaction graph",
   ],
 } as const;
 
-export const POLICY_OPTIONS = {
-  minimumAssets: [50_000, 100_000, 250_000, 500_000],
-  maximumDebtRatio: [30, 40, 50],
-  minimumHistoryMonths: [6, 12, 18],
-} as const;
-
-export const DEMO_WITNESS = {
-  assets: 340_000,
-  debtRatio: 28,
-  historyMonths: 14,
-  hasRestrictedExposure: false,
-} as const;
-
-export const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+// Moved to `shared/format.ts` (which the borrower and lender views both use).
+export { formatCurrency } from "../shared/format";

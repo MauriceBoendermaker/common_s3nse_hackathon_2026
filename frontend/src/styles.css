@@ -4394,3 +4394,988 @@ select {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ==========================================================================
+   Workstream A — two-party views
+   Added with the borrower/lender rewrite. Same tokens, same naming, same
+   spacing rhythm as the blocks above.
+   ========================================================================== */
+
+/* --- text inputs (the app had only selects until an address had to be typed) */
+
+.text-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  background: var(--surface-strong);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.text-input::placeholder {
+  color: var(--ink-faint);
+}
+
+.text-input:disabled {
+  color: var(--ink-faint);
+  background: #f1f3ef;
+}
+
+.address-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.address-form__help {
+  color: var(--ink-faint);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.address-form .inline-state,
+.address-form .generating-state {
+  margin-top: 4px;
+}
+
+.identity-record--pending {
+  margin-top: 8px;
+  border-color: var(--line);
+  background: #f8f9f6;
+}
+
+.identity-record--pending .avatar--large {
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+
+/* --- the four witness values (borrower only) ----------------------------- */
+
+.witness-grid {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-strong);
+}
+
+.witness-grid > div {
+  min-width: 0;
+  padding: 16px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.witness-grid > div:nth-child(2n) {
+  border-right: 0;
+}
+
+.witness-grid > div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.witness-grid > div.is-flagged {
+  background: var(--warning-soft);
+}
+
+.witness-grid span,
+.witness-grid strong,
+.witness-grid small {
+  display: block;
+}
+
+.witness-grid span {
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.witness-grid strong {
+  margin: 5px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.witness-grid small {
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.commitment-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #c9dfd3;
+  border-radius: var(--radius-md);
+  background: #f8fcf9;
+}
+
+.commitment-panel strong {
+  display: block;
+  overflow-wrap: anywhere;
+  margin: 6px 0;
+  font-size: 12px;
+}
+
+.commitment-panel small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.commitment-note {
+  margin: 12px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.commitment-note strong {
+  color: var(--ink);
+}
+
+/* --- holdings table ------------------------------------------------------ */
+
+.holdings-table {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-strong);
+}
+
+.holdings-table__row {
+  display: grid;
+  grid-template-columns: 0.7fr repeat(4, minmax(0, 1fr));
+}
+
+.holdings-table__row + .holdings-table__row {
+  border-top: 1px solid var(--line);
+}
+
+.holdings-table__row > span {
+  min-width: 0;
+  overflow: hidden;
+  padding: 11px 14px;
+  border-right: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+}
+
+.holdings-table__row > span:last-child {
+  border-right: 0;
+}
+
+.holdings-table__head > span {
+  color: var(--ink-faint);
+  background: #f1f3ef;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 680;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* --- the provenance strip: instrumentation, not marketing ---------------- */
+
+.provenance-mount {
+  margin-top: 22px;
+}
+
+.provenance {
+  padding: 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: #f6f8f4;
+}
+
+.provenance--compact {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--surface);
+}
+
+.provenance__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.provenance__title {
+  display: block;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.provenance__title small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.provenance-sources {
+  display: grid;
+  gap: 6px;
+  margin: 11px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.provenance-source {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-strong);
+}
+
+.provenance-source.is-failed {
+  border-color: #e3c3bd;
+  background: var(--danger-soft);
+}
+
+.provenance-source__mark {
+  display: inline-grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.provenance-source.is-failed .provenance-source__mark {
+  background: var(--danger);
+}
+
+.provenance-source__body {
+  min-width: 0;
+}
+
+.provenance-source__body strong {
+  display: block;
+  font-size: 12px;
+}
+
+.provenance-source__body code {
+  display: block;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provenance-source__body small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.provenance-source__latency {
+  color: var(--accent-deep);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.provenance-facts {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 11px 0 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line);
+}
+
+.provenance-facts > div {
+  min-width: 0;
+  padding: 8px 10px;
+  background: var(--surface-strong);
+}
+
+.provenance-facts dt {
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.provenance-facts dd {
+  overflow: hidden;
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+}
+
+.provenance-flag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.provenance-flag--warn {
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+
+.provenance-note {
+  margin: 10px 0 0;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.provenance-note--flag {
+  padding: 9px 11px;
+  border-left: 3px solid var(--warning);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--warning-soft);
+}
+
+.provenance-lists {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.provenance-lists__label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 680;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.provenance-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.provenance-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  background: var(--surface-strong);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.provenance-chip small {
+  color: var(--ink-faint);
+  font-size: 9px;
+}
+
+.provenance-chip--quality {
+  border-color: #bfdaca;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+}
+
+.provenance-chip--deny {
+  border-color: #e3c3bd;
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.provenance-warnings {
+  display: grid;
+  gap: 5px;
+  margin: 11px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.provenance-warnings li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  color: var(--warning);
+  background: var(--warning-soft);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.provenance-warnings svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+/* --- the verifier's own checklist (the lender's real evidence) ----------- */
+
+.verifier-checks {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid #cfe2d7;
+  background: #cfe2d7;
+  list-style: none;
+}
+
+.verifier-checks li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 11px 15px;
+  background: #f8fcf9;
+}
+
+.verifier-checks li.is-fail {
+  background: var(--danger-soft);
+}
+
+.verifier-checks__mark {
+  display: inline-grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.verifier-checks li.is-fail .verifier-checks__mark {
+  background: var(--danger);
+}
+
+.verifier-checks strong {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.verifier-checks small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.proof-receipt__disclaimer {
+  margin: 0;
+  padding: 13px 15px;
+  border-top: 1px solid #cfe2d7;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.proof-receipt__disclaimer strong {
+  color: var(--ink);
+}
+
+/* --- local hash recomputation badge -------------------------------------- */
+
+.hash-check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 14px;
+  padding: 11px 13px;
+  border: 1px solid #c9dfd3;
+  border-radius: var(--radius-md);
+  background: #f8fcf9;
+}
+
+.hash-check--fail {
+  border-color: #e3c3bd;
+  background: var(--danger-soft);
+}
+
+.hash-check__mark {
+  display: inline-grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.hash-check--fail .hash-check__mark {
+  background: var(--danger);
+}
+
+.hash-check strong {
+  display: block;
+  font-size: 12px;
+}
+
+.hash-check small {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.hash-check code,
+.provenance-note code,
+.waiting-state code,
+.empty-workspace code,
+.home-honesty code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(25, 100, 71, 0.08);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+/* --- what becomes public vs what stays local ----------------------------- */
+
+.disclosure-split {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--line);
+}
+
+.disclosure-split > div {
+  min-width: 0;
+  padding: 15px;
+  background: var(--surface-strong);
+}
+
+.disclosure-split__label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.disclosure-split ul {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+/* --- the lender's inbox -------------------------------------------------- */
+
+.request-inbox {
+  display: grid;
+  gap: 16px;
+  margin-top: 26px;
+}
+
+.request-inbox__row {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+}
+
+.request-inbox__row.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(25, 100, 71, 0.1);
+}
+
+.request-inbox__summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.request-inbox__summary strong {
+  display: block;
+  margin: 6px 0 3px;
+  font-family: var(--font-mono);
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.request-inbox__summary small {
+  display: block;
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.request-inbox__facts {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 15px 0 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line);
+}
+
+.request-inbox__facts > div {
+  min-width: 0;
+  padding: 9px 11px;
+  background: var(--surface);
+}
+
+.request-inbox__facts dt {
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.request-inbox__facts dd {
+  overflow: hidden;
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 11px;
+  text-overflow: ellipsis;
+}
+
+.request-inbox__action {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.sidebar-withdraw {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  text-align: left;
+}
+
+/* --- header session chip ------------------------------------------------- */
+
+.session-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.network-dot--connecting {
+  background: var(--ink-faint);
+  box-shadow: 0 0 0 3px rgba(125, 135, 129, 0.14);
+}
+
+.network-dot--reconnecting {
+  background: #c8912f;
+  box-shadow: 0 0 0 3px rgba(200, 145, 47, 0.16);
+}
+
+.network-dot--error {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgba(154, 61, 53, 0.16);
+}
+
+/* --- misc ---------------------------------------------------------------- */
+
+.home-honesty {
+  max-width: 620px;
+  margin-top: 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--ink-soft);
+  background: var(--surface);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.home-honesty strong {
+  color: var(--ink);
+}
+
+.privacy-item em {
+  margin-left: auto;
+  color: #9dc9b4;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.empty-workspace .spinner {
+  width: 26px;
+  height: 26px;
+  color: var(--accent);
+}
+
+.wallet-dialog__state--failed .wallet-dialog__icon {
+  color: var(--danger);
+}
+
+.wallet-dialog__state--done .wallet-dialog__icon {
+  color: var(--accent);
+}
+
+@media (max-width: 920px) {
+  .provenance-facts,
+  .request-inbox__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .witness-grid,
+  .disclosure-split,
+  .provenance-facts,
+  .request-inbox__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .witness-grid > div {
+    border-right: 0;
+  }
+
+  .commitment-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .holdings-table__head {
+    display: none;
+  }
+
+  .holdings-table__row {
+    grid-template-columns: 1fr;
+  }
+
+  .holdings-table__row > span {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .holdings-table__row > span:last-child {
+    border-bottom: 0;
+  }
+
+  .holdings-table__row > span::before {
+    color: var(--ink-faint);
+    font-family: var(--font-sans);
+    font-size: 9px;
+    font-weight: 720;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    content: attr(data-label);
+  }
+
+  .request-inbox__summary {
+    flex-direction: column;
+  }
+
+  .provenance-source {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .provenance-source__latency {
+    grid-column: 1 / -1;
+  }
+}
+
+/* --- workstream D: ENS identity + one-time payout addresses -------------- */
+
+/*
+  Deliberately built out of the tokens and shapes already in this file: the
+  same 1px `--line` rules, the same `--font-mono` for anything a reader might
+  copy, the same `identity-details` cell geometry. Four selectors were genuinely
+  new (`ens-panel`, `ens-key-block`, `sign-message`, `payout-*`); everything
+  else on these screens reuses existing classes.
+*/
+
+.ens-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+  padding: 16px 18px 0;
+}
+
+.ens-panel .form-field {
+  min-width: 0;
+}
+
+.ens-key-block {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.identity-record .provenance-note,
+.payout-panel .provenance-note {
+  margin: 12px 18px;
+}
+
+.identity-record .hash-check,
+.identity-record .inline-state,
+.payout-panel .inline-state {
+  margin: 12px 18px;
+}
+
+.identity-record .identity-details {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.identity-record .proof-section-heading {
+  padding: 12px 18px 0;
+}
+
+/* The verbatim value a contract returned. Never abbreviated by CSS. */
+.raw-record {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.sign-message {
+  margin: 0 18px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.payout-panel {
+  margin-top: 24px;
+  padding-bottom: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-strong);
+}
+
+.payout-panel > .proof-section-heading {
+  padding: 13px 18px;
+}
+
+.payout-panel > .task-card__action {
+  padding: 0 18px 12px;
+}
+
+.payout-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0 18px;
+  list-style: none;
+}
+
+.payout-list > li {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
+.payout-list__head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.payout-list__head strong {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.payout-list__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin: 12px 0 0;
+}
+
+.payout-list__facts dt {
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.payout-list__facts dd {
+  overflow: hidden;
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+}
+
+.payout-list .provenance-note {
+  margin: 12px 0 0;
+}
+
+@media (max-width: 780px) {
+  .ens-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .payout-list__facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -253,7 +253,17 @@ weakening versus full ERC-5564 stealth — it costs key compartmentalisation, no
 
 Ordered by **value per hour**, not architectural elegance.
 
-### A — Real trust boundary + marketplace backend · ~3 h · prerequisite for everything
+### ✅ A — Real trust boundary + marketplace backend · ~3 h · prerequisite for everything
+
+> **DONE — 2026-09-03.** Backend store, REST API, long-poll channel and two structurally separated
+> clients are implemented and verified: `npm run typecheck` and `npm run build` clean, and a live
+> two-party curl flow (session → passport → request → challenge → proof → verify → offer → accept →
+> draw → repay) passes. The single shared `useState` is gone; `BorrowerView` and `LenderView` are
+> lazy-loaded into **separate Rollup chunks**, and `ProtocolState` has **no field that could carry a
+> witness** — the boundary is enforced by the type system, not by convention. A typo'd endpoint
+> returns JSON 404 (not `index.html` with HTTP 200), the SPA fallback uses `/{*splat}`, and the
+> backend is enum-free so `node --watch src/index.ts` runs. `POST /api/proofs` additionally *refuses*
+> a body carrying witness-shaped keys.
 
 Split the single `useState` into two clients talking over an explicit channel.
 
@@ -269,7 +279,27 @@ Split the single `useState` into two clients talking over an explicit channel.
 > HTTP 200. Never use a TS `enum` in the backend — `node --watch src/index.ts` dies with
 > `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`; mirror the frontend's string-union style.
 
-### B — Real witness from Solana RPC · ~5 h · **kills the ENS disqualifier**
+### ✅ B — Real witness from Solana RPC · ~5 h · **kills the ENS disqualifier**
+
+> **DONE — 2026-09-03.** `DEMO_WITNESS` is deleted from the repo. `GET /api/passport/:address` reads
+> live Solana mainnet. Measured on two real wallets:
+>
+> | | `GDfnEsia…7XmG` | `5tzFkiKs…uAi9` |
+> |---|---|---|
+> | assets | $17,427 | $1,424,246,223 |
+> | collateralQuality | 0% | 85% |
+> | restrictedExposure | false | **true** (denylist hit) |
+> | token accounts seen → allowlisted | 5 → 1 | **4,280 → 6** |
+>
+> The allowlist is doing exactly the work predicted — 4,280 junk mints discarded on the second wallet.
+> Provenance is stamped per call with real measured latencies. **Both** test wallets are so active that
+> the 10-page scan cannot reach the 24-month horizon, so `historyMonths` comes back `null` /
+> `indeterminate` and **fails closed** — as specified. Decision confirmed: demo with a normal personal
+> wallet, which resolves exactly on page 1.
+>
+> **§9.3 settled: `debtRatio` → `minimumCollateralQuality`.** The comparison flips from `LessEqThan` to
+> `GreaterEqThan`; circuit shape unchanged. Policy tiers lowered to `[1k, 10k, 50k, 100k, 250k]` so a
+> judge pasting their own wallet can actually clear the lowest bar.
 
 This is no longer a bounty play, but it is still **mandatory**: it deletes `DEMO_WITNESS`, and that constant
 is what fails the ENS bounty's "no hard-coded demonstrations" rule. Every input is **keyless and verified
@@ -316,7 +346,35 @@ and say so in the UI, or a judge will spot the mismatch in ten seconds.
 > hour 14. Copy cost either way: "debt ratio" appears throughout the borrower view, lender policy builder,
 > proof receipt and content pages — fold it into the Sepolia→Solana copy sweep (§7).
 
-### C — ZK credential pipeline · ~4 h · already 70% done (§1)
+### ✅ C — ZK credential pipeline · ~4 h · already 70% done (§1)
+
+> **DONE — 2026-09-04.** `zk/` is a third npm workspace. Real Groth16, generated in the browser.
+>
+> | | |
+> |---|---|
+> | circuit | `zk/circuits/credit_policy.circom`, circom 2.2.3 |
+> | constraints | **1,390 non-linear + 1,590 linear** (2,980 total) |
+> | prove / verify | **1,087 ms** / **22 ms** |
+> | artifacts | wasm 3.4 MB · zkey 1.35 MB · vkey 4 KB |
+> | ptau | generated **locally** at 2^12 — no Hermez mirror is touched |
+> | ceremony | 2 phase-1 contributions + beacon, 2 phase-2 contributions + beacon, transcript at `zk/build/ceremony-transcript.md` |
+>
+> **`verify-test.mjs`: 35/35 pass**, including the soundness cases that matter:
+> `collateralQuality = 250` and `minAssets = p-1` (the field's "−1") are both **unprovable** —
+> the `Num2Bits` range checks close the field-overflow forgery the recovered prototype circuit
+> was open to. Bit-flips in `pi_a`/`pi_b`/`pi_c`, swapping `pi_a` with `pi_c`, and grafting an
+> ineligible proof onto eligible signals are all rejected. An `eligible = 0` proof still verifies —
+> it is a valid proof of ineligibility, which is the point.
+>
+> **⚠️ Plan correction: there are SEVEN public signals, not six.** `verifierCommitment` had to
+> become public signal [6]; private, a prover could compute the nullifier against a *different*
+> verifier and the binding would be worthless. Verified order, asserted at build time from the
+> compiled circuit and written to `zk/build/signal_layout.json`:
+> `[passportCommitment, eligible, policyHash, subjectCommitment, expiry, nullifier, verifierCommitment]`.
+>
+> One build step, two outputs: `frontend/public/zk/` and `zk/build/vk_data.rs` are always
+> regenerated together, and the backend refuses to start on a vkey mismatch. `.gitignore`
+> negations added — `build/` was ignored and would have silently untracked all of it.
 
 `zk/` as a third npm workspace: `getcircom.mjs` → `circuits/credit_policy.circom` → `build.mjs` → copies
 `wasm`/`zkey`/`vkey` into `frontend/public/zk/`, and emits `vk_data.rs` for the Solana program.
@@ -335,7 +393,28 @@ and say so in the UI, or a judge will spot the mismatch in ten seconds.
   and the program's `VK_*` constants must always be regenerated together — otherwise every proof fails
   on-chain with no useful error.
 
-### D — ENS privacy mechanism · ~4 h · wins bounty #1 · **no contract deployment**
+### 🟡 D — ENS privacy mechanism · ~4 h · wins bounty #1 · **no contract deployment**
+
+> **CODE DONE — 2026-09-04. One manual step outstanding (see below).**
+>
+> X25519 → ed25519 derivation per §3.1: `seed = HKDF-SHA256(ss, salt = requestId,
+> info = "privatecredit/v1/sol-payout")` → a standard Solana address. `scripts/ens-selftest.mjs`
+> **20/20 pass**: three successive draws for one identity give three *different* valid Solana
+> addresses, each recovered by the borrower, each recovered 64-byte secret key genuinely controls
+> its address; a stranger recovers nothing even with the view-tag filter disabled; the view tag
+> discards ~255/256 of foreign announcements (measured 4/512 survived, expected ~2).
+>
+> Deliberately **not** claimed: no ERC-5564 `schemeId 1` reuse (it is registered for secp256k1),
+> no ENSIP compliance claim — the pending stealth-address ENSIP scopes non-EVM out. Custom record
+> key `privatecredit.payout-key[501]`, RFC 7748 + RFC 5869 cited. An ERC-5564 meta-address is
+> actively *rejected* by the decoder. Honest limitation stated in code and UI: one ECDH secret
+> means the viewing key can also spend — unlinkability intact, compartmentalisation lost.
+>
+> **⏳ OUTSTANDING — needs a funded Sepolia key, which only you can supply.**
+> `scripts/ens-setup.mjs` is staged and ready: `--check` → `--register` → `--set-text` → `--verify`.
+> Run with `SEPOLIA_PRIVATE_KEY` set; ~0.004 ETH total (0.00313/yr + setText gas). It prints costs
+> and requires confirmation before any write. **Until that runs, no `setText` round-trip has been
+> observed on a name we control** — §4D flags this as unproven, and it stays unproven.
 
 Cheaper than the EVM-settled version, because there is nothing to deploy and no announcement log to scan.
 
@@ -478,11 +557,11 @@ A, B, C and D share almost no surface area — parallelise them.
 | Hours | Work | Gate |
 |---|---|---|
 | **0–1** | **Get devnet SOL first.** Register the ENS name + prove a `setText`/`getText` round-trip. Green Render deploy with a stub. | 💰 **SOL confirmed landed?** If not, escalate faucets immediately — there is no second chain |
-| 0–3 | **A**: backend store, REST, polling, two separate clients | |
-| 1–5 | **B**: Solana RPC adapter → real witness replaces `DEMO_WITNESS` | ✅ Non-negotiable — without it the ENS bounty fails on rule 4 |
-| 3–7 | **C**: circuit → local ptau → browser proving in a worker → `vk_data.rs` | |
+| 0–3 | ✅ **A**: backend store, REST, polling, two separate clients | **Done** — typecheck + build + live two-party curl flow green |
+| 1–5 | ✅ **B**: Solana RPC adapter → real witness replaces `DEMO_WITNESS` | **Done** — `DEMO_WITNESS` deleted; two real wallets return genuinely different witnesses |
+| 3–7 | ✅ **C**: circuit → local ptau → browser proving in a worker → `vk_data.rs` | **Done** — 35/35 verify-test, 1,087 ms prove, range checks proven sound |
 | 7–9 | Byte-conversion + `cargo test` green against own fixtures | 🚦 **Do not deploy before this is green** |
-| 5–9 | **D**: ENS payout derivation end-to-end | |
+| 5–9 | 🟡 **D**: ENS payout derivation end-to-end | **Code done** — 20/20 selftest, 3 rotating Solana addresses. ⏳ `setText` needs your Sepolia key |
 | 9–18 | **E**: Solana program → devnet; wallet-adapter + Sepolia→Solana UI sweep | **Hour 18: deployed?** If not, drop to the fallback below |
 | 18–20 | **F**: hosting, Swarm (cut first if tight), Credential Passport strip | |
 | 20–23 | Delete demo shortcuts, rewrite stale copy (§7), README, video | ⚠️ Reserve 3 h — not optional polish |

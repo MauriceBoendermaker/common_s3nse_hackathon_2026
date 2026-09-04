@@ -11,6 +11,10 @@
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    // Lets Node scripts (scripts/ens-probe.mjs) import the SAME shared modules the
+    // app ships, via their real ".ts" paths, instead of a parallel copy that could
+    // pass while the shipping code is broken. Safe here because noEmit is on.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,

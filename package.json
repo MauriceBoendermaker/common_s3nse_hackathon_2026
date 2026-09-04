@@ -3,12 +3,24 @@
   "private": true,
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "zk"
   ],
   "scripts": {
     "dev": "concurrently -n frontend,backend -c cyan,magenta \"npm run dev -w frontend\" \"npm run dev -w backend\"",
-    "build": "npm run build -w frontend && npm run build -w backend",
-    "typecheck": "npm run typecheck -w frontend && npm run typecheck -w backend"
+    "build": "npm run sync:types && npm run build -w frontend && npm run build -w backend",
+    "typecheck": "npm run sync:types && npm run typecheck -w frontend && npm run typecheck -w backend",
+    "sync:types": "node scripts/sync-types.mjs",
+    "zk:circom": "node zk/getcircom.mjs",
+    "zk:build": "node zk/build.mjs",
+    "zk:prove": "node zk/prove.mjs",
+    "zk:test": "node zk/verify-test.mjs",
+    "ens:probe": "node scripts/ens-probe.mjs",
+    "ens:selftest": "node scripts/ens-selftest.mjs",
+    "ens:setup": "node scripts/ens-setup.mjs",
+    "payout:e2e": "node scripts/payout-e2e.mjs",
+    "e2e:curl": "bash scripts/e2e-curl.sh",
+    "zk:fixtures": "node zk/make-fixtures.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

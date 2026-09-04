@@ -43,7 +43,7 @@ export function SiteFooter({ onNavigate }: SiteFooterProps) {
           <div className="footer-status">
             <span>Prototype status</span>
             <strong><i aria-hidden="true" />{PRODUCT_CONFIG.network} demo</strong>
-            <p>Wallet actions, ZK proof generation, verification, offers, and fund settlement are simulated.</p>
+            <p>ZK proof generation and verification are real, and ENS names are resolved live on Sepolia. Wallet confirmations and fund settlement are simulated, and no Solana program is deployed.</p>
           </div>
         </div>
 

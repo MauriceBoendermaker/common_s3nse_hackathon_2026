@@ -1,13 +1,19 @@
-import {
-  ArrowRight,
-  Check,
-  ChevronDown,
-  Menu,
-  RotateCcw,
-  WalletCards,
-  X,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+/**
+ * The header.
+ *
+ * The old "Demo · Sepolia" pill was a constant string, and next to it sat a
+ * "Connect wallet" button that connected to nothing. Both are gone.
+ *
+ * What sits there now is the live state of THIS tab's long-poll plus the short
+ * form of the session id the server issued it. Open the applicant workspace in
+ * one tab and the provider workspace in another and the two pills read
+ * different ids — which is the entire trust-boundary claim, demonstrated in one
+ * glance rather than asserted in a paragraph.
+ */
+
+import { ArrowRight, Menu, RotateCcw, X } from "lucide-react";
+import { useEffect, useState } from "react";
+
 import {
   APP_NAVIGATION,
   isApplicationView,
@@ -15,63 +21,35 @@ import {
   type SiteView,
 } from "../config/navigation";
 import { PRODUCT_CONFIG } from "../config/product";
-import { BrandMark, Button, StatusPill } from "./ui";
+import type { ConnectionStatus } from "../shared/useProtocolState";
+import { usePartyStatus } from "../state/connectionStatus";
+import { shortId } from "../state/shortId";
 import { RouteLink } from "./RouteLink";
+import { BrandMark, Button, Spinner, StatusPill } from "./ui";
 
 type AppHeaderProps = {
   view: SiteView;
-  walletConnected: boolean;
-  walletIdentity: {
-    ensName: string;
-    walletAddress: string;
-  };
+  resetting: boolean;
   onNavigate: (view: SiteView) => void;
-  onConnect: () => void;
-  onDisconnect: () => void;
   onReset: () => void;
 };
 
-export function AppHeader({
-  view,
-  walletConnected,
-  walletIdentity,
-  onNavigate,
-  onConnect,
-  onDisconnect,
-  onReset,
-}: AppHeaderProps) {
-  const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+const CONNECTION_COPY: Record<ConnectionStatus, { label: string; tone: "neutral" | "success" | "warning" | "danger" }> = {
+  connecting: { label: "connecting", tone: "neutral" },
+  live: { label: "live", tone: "success" },
+  reconnecting: { label: "reconnecting", tone: "warning" },
+  error: { label: "offline", tone: "danger" },
+};
+
+export function AppHeader({ view, resetting, onNavigate, onReset }: AppHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const walletControlRef = useRef<HTMLDivElement>(null);
   const appView = isApplicationView(view);
   const navigation = appView ? APP_NAVIGATION : PUBLIC_NAVIGATION;
+  const party = usePartyStatus();
 
   useEffect(() => {
     setMobileMenuOpen(false);
-    setWalletMenuOpen(false);
   }, [view]);
-
-  useEffect(() => {
-    if (!walletMenuOpen) return;
-
-    const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!walletControlRef.current?.contains(event.target as Node)) {
-        setWalletMenuOpen(false);
-      }
-    };
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setWalletMenuOpen(false);
-    };
-
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    document.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [walletMenuOpen]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -81,6 +59,8 @@ export function AppHeader({
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [mobileMenuOpen]);
+
+  const connection = party ? CONNECTION_COPY[party.connection] : null;
 
   return (
     <header className="app-header">
@@ -108,67 +88,41 @@ export function AppHeader({
         </nav>
 
         <div className="header-actions">
-          <StatusPill tone="neutral">
-            <span className="network-dot" aria-hidden="true" />
-            Demo · {PRODUCT_CONFIG.network}
-          </StatusPill>
+          {party && connection ? (
+            <StatusPill tone={connection.tone}>
+              <span className={`network-dot network-dot--${party.connection}`} aria-hidden="true" />
+              {connection.label} · {party.role}{" "}
+              <code className="session-chip">
+                {party.sessionId ? shortId(party.sessionId) : "no session"}
+              </code>
+            </StatusPill>
+          ) : (
+            <StatusPill tone="neutral">
+              <span className="network-dot" aria-hidden="true" />
+              Prototype · reads mainnet, settles {PRODUCT_CONFIG.settleCluster.replace("Solana ", "")}
+            </StatusPill>
+          )}
 
           {appView ? (
-            <div className="wallet-control" ref={walletControlRef}>
-              <Button
-                variant={walletConnected ? "secondary" : "dark"}
-                className="wallet-button"
-                icon={walletConnected ? <ChevronDown size={15} /> : <WalletCards size={16} />}
-                aria-expanded={walletMenuOpen}
-                aria-haspopup="menu"
-                aria-controls={walletConnected ? "wallet-menu" : undefined}
-                onClick={() => {
-                  if (walletConnected) setWalletMenuOpen((open) => !open);
-                  else onConnect();
-                }}
-              >
-                {walletConnected ? walletIdentity.ensName : "Connect wallet"}
-              </Button>
-
-              {walletMenuOpen ? (
-                <div className="wallet-menu" id="wallet-menu" role="menu">
-                  <div className="wallet-menu__identity">
-                    <span className="wallet-avatar" aria-hidden="true">
-                      {walletIdentity.ensName.charAt(0).toUpperCase()}
-                    </span>
-                    <span>
-                      <strong>{walletIdentity.ensName}</strong>
-                      <small>{walletIdentity.walletAddress}</small>
-                    </span>
-                    <Check size={16} className="success-icon" aria-label="Connected" />
-                  </div>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      onReset();
-                      setWalletMenuOpen(false);
-                    }}
-                  >
-                    <RotateCcw size={15} /> Reset demo
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      onDisconnect();
-                      setWalletMenuOpen(false);
-                    }}
-                  >
-                    Disconnect
-                  </button>
-                  <small className="wallet-menu__note">Wallet confirmations are simulated in this frontend.</small>
-                </div>
-              ) : null}
-            </div>
+            <Button
+              variant="secondary"
+              className="wallet-button"
+              disabled={resetting}
+              onClick={onReset}
+              icon={resetting ? <Spinner /> : <RotateCcw size={15} />}
+            >
+              {resetting ? "Resetting" : "Reset"}
+            </Button>
           ) : (
-            <RouteLink view="borrower" onNavigate={onNavigate} className="button button--dark header-launch">
-              <span>Launch demo</span><span className="button__icon"><ArrowRight size={15} /></span>
+            <RouteLink
+              view="borrower"
+              onNavigate={onNavigate}
+              className="button button--dark header-launch"
+            >
+              <span>Open the demo</span>
+              <span className="button__icon">
+                <ArrowRight size={15} />
+              </span>
             </RouteLink>
           )}
 
@@ -197,10 +151,14 @@ export function AppHeader({
               className={view === item.view ? "is-active" : undefined}
               ariaCurrent={view === item.view ? "page" : undefined}
             >
-              {item.label}<ArrowRight size={15} />
+              {item.label}
+              <ArrowRight size={15} />
             </RouteLink>
           ))}
-          <RouteLink view="about" onNavigate={onNavigate}>About<ArrowRight size={15} /></RouteLink>
+          <RouteLink view="about" onNavigate={onNavigate}>
+            About
+            <ArrowRight size={15} />
+          </RouteLink>
         </nav>
       ) : null}
     </header>

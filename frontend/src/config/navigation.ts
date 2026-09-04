@@ -1,4 +1,4 @@
-import type { AppView } from "../state/demo";
+import type { AppView } from "../state/types";
 
 export type ContentView =
   | "how-it-works"

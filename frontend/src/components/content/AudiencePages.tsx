@@ -22,16 +22,16 @@ import { ContentHero, ContentSection, PageCta } from "./ContentPageShell";
 
 const borrowerSteps = [
   ["Connect an identity", "Sign with an EVM wallet and confirm the ENS identity attached to the request."],
-  ["Select evidence sources", "Choose which supported portfolio and lending sources may contribute to the private snapshot."],
+  ["Supply a Solana address", "Balances for the allowlisted mints are read from mainnet and priced, producing a private snapshot for that address."],
   ["Review public terms", "Confirm the amount, term, asset, and first-loss deposit that providers will see."],
-  ["Generate a policy-bound proof", "Evaluate the requested claims without sending exact portfolio values to the provider."],
+  ["Generate a policy-bound receipt", "Evaluate the four requested claims against the snapshot without sending exact portfolio values to the provider."],
   ["Publish the request", "Share public terms, proof metadata, and the sealed verification payload."],
   ["Compare and choose", "Review APR, fees, deposit requirements, and provider identity before accepting an offer."],
 ];
 
 const providerSteps = [
   ["Inspect public terms", "Review requested amount, asset, duration, deposit, and applicant ENS identity."],
-  ["Configure a challenge", "Choose thresholds for assets, leverage, account history, and restricted exposure."],
+  ["Configure a challenge", "Choose thresholds for assets, collateral quality, account history, and restricted exposure."],
   ["Verify sealed claims", "Receive one result per claim and reject expired, malformed, or policy-mismatched proofs."],
   ["Perform independent underwriting", "Assess credit, liquidity, legal, operational, and counterparty risks beyond the proof."],
   ["Price and fund", "Return an APR, fees, deposit, term, and expiry for the applicant to compare."],
@@ -89,9 +89,9 @@ export function ForBorrowersPage({ onNavigate }: { onNavigate: (view: SiteView) 
 
       <ContentSection eyebrow="Before you begin" title="Prototype prerequisites">
         <div className="prerequisite-list">
-          <div><WalletCards size={19} /><span><strong>EVM wallet</strong><small>The demo simulates MetaMask-style confirmations and Sepolia network switching.</small></span></div>
+          <div><WalletCards size={19} /><span><strong>EVM wallet</strong><small>Sepolia is read for real — registry, resolver and the payout text record. Wallet confirmations and network switching are still simulated; nothing here signs.</small></span></div>
           <div><Fingerprint size={19} /><span><strong>ENS-compatible identity</strong><small>The prepared scenario uses {PRODUCT_CONFIG.borrower.ensName}; ENS records themselves remain public.</small></span></div>
-          <div><FileKey2 size={19} /><span><strong>Eligible evidence</strong><small>Supported sources must cover the claims a provider requests. Current source values are fixtures.</small></span></div>
+          <div><FileKey2 size={19} /><span><strong>A Solana mainnet address</strong><small>Balances are read live for whatever address you supply, over an allowlist of nine mints committed in the repository. There are no fixture portfolio values.</small></span></div>
           <div><Scale size={19} /><span><strong>Risk awareness</strong><small>A passing proof is not approval, a promise of funding, or a recommendation to borrow.</small></span></div>
         </div>
       </ContentSection>
@@ -113,17 +113,19 @@ export function ForBorrowersPage({ onNavigate }: { onNavigate: (view: SiteView) 
               <li>Amount, asset, term, and deposit</li>
               <li>Claim labels and pass/fail results</li>
               <li>Proof identifier, policy binding, and expiry</li>
+              <li>The passport commitment, published before the challenge</li>
+              <li>The Solana address the snapshot was read from, in the provenance strip</li>
               <li>Applicant’s offer decision</li>
             </ul>
           </article>
           <article className="is-private">
             <span className="visibility-comparison__label"><LockKeyhole size={16} /> Not shared</span>
             <ul>
-              <li>Exact assets and liabilities</li>
-              <li>Wallet-by-wallet balances</li>
-              <li>Positions, protocols, and counterparties</li>
-              <li>Complete transaction graph</li>
-              <li>Unused source data</li>
+              <li>Total portfolio value in USD</li>
+              <li>Per-token balances and their prices</li>
+              <li>The measured collateral-quality share and account age</li>
+              <li>Token accounts outside the allowlist</li>
+              <li>Any value the four comparisons did not turn into an outcome</li>
             </ul>
           </article>
         </div>
@@ -134,7 +136,7 @@ export function ForBorrowersPage({ onNavigate }: { onNavigate: (view: SiteView) 
           <Clock3 size={25} />
           <div>
             <h3>Every proof needs an expiry and a policy binding</h3>
-            <p>A provider should reject an expired proof, a proof generated for another policy, or a proof whose source coverage cannot be confirmed. The prepared receipt is valid until <strong>{PRODUCT_CONFIG.borrower.proofValidUntil}</strong>.</p>
+            <p>A provider should reject an expired proof, a proof generated for another policy, or a proof whose source coverage cannot be confirmed. Each policy challenge sets its own validity window, the backend recomputes the policy hash it is bound to, and a nullifier makes a second presentation of the same receipt fail.</p>
           </div>
         </div>
       </ContentSection>
@@ -143,7 +145,7 @@ export function ForBorrowersPage({ onNavigate }: { onNavigate: (view: SiteView) 
         <div className="after-offer-grid">
           <article><span>01</span><h3>Compare</h3><p>Check total repayment—not APR alone—including fees and deposit requirements.</p></article>
           <article><span>02</span><h3>Accept or decline</h3><p>Confirm provider identity, offer expiry, settlement terms, and wallet action before signing.</p></article>
-          <article><span>03</span><h3>Settle responsibly</h3><p>Draw and repay only through verified contracts in a production system. These actions are simulated here.</p></article>
+          <article><span>03</span><h3>Settle responsibly</h3><p>Draw and repay only through verified contracts in a production system. Here they are state changes on a shared row: no Solana program exists to call and no value moves.</p></article>
         </div>
       </ContentSection>
 
@@ -170,7 +172,7 @@ export function ForCapitalProvidersPage({ onNavigate }: { onNavigate: (view: Sit
           <div className="policy-preview-card">
             <span className="section-label">Example policy</span>
             <div><span>Minimum assets</span><strong>$100k</strong></div>
-            <div><span>Maximum debt ratio</span><strong>40%</strong></div>
+            <div><span>Minimum collateral quality</span><strong>60%</strong></div>
             <div><span>Account history</span><strong>12+ mo</strong></div>
             <div><span>Restricted exposure</span><strong>Clean</strong></div>
           </div>
@@ -194,10 +196,10 @@ export function ForCapitalProvidersPage({ onNavigate }: { onNavigate: (view: Sit
         intro="The prototype exposes four controls. A production policy should also define version, source coverage, time window, expiry, and failure behavior."
       >
         <div className="policy-control-grid">
-          <article><Gauge size={21} /><span>Minimum portfolio assets</span><strong>$50k–$500k</strong><p>Point-in-time eligible assets, subject to source and valuation rules.</p></article>
-          <article><BarChart3 size={21} /><span>Maximum debt ratio</span><strong>30%–50%</strong><p>A leverage threshold; not a guarantee against future borrowing.</p></article>
-          <article><Clock3 size={21} /><span>Minimum account history</span><strong>6–18 months</strong><p>Evidence duration based on supported source coverage.</p></article>
-          <article><ShieldCheck size={21} /><span>Restricted exposure</span><strong>Required / off</strong><p>A screening claim whose definitions and lists must be governed.</p></article>
+          <article><Gauge size={21} /><span>Minimum portfolio assets</span><strong>$50k–$500k</strong><p>Point-in-time USD value of the allowlisted holdings, priced at read time.</p></article>
+          <article><BarChart3 size={21} /><span>Minimum collateral quality</span><strong>40%–80%</strong><p>The share of that value held in allowlisted stablecoins and liquid staking tokens. It measures what the portfolio is made of, not what is owed against it.</p></article>
+          <article><Clock3 size={21} /><span>Minimum account history</span><strong>6–18 months</strong><p>Account age from a bounded signature scan; an age the scan cannot establish is reported as unknown.</p></article>
+          <article><ShieldCheck size={21} /><span>Restricted exposure</span><strong>Required / off</strong><p>Holdings are screened against a denylist of mints committed in the repository. The list itself still needs governance.</p></article>
         </div>
       </ContentSection>
 
@@ -216,7 +218,7 @@ export function ForCapitalProvidersPage({ onNavigate }: { onNavigate: (view: Sit
           <article>
             <span className="semantics-mark semantics-mark--unknown">?</span>
             <h3>Unavailable</h3>
-            <p>Missing coverage, stale inputs, an expired proof, or a verification error is not equivalent to either pass or fail.</p>
+            <p>Missing coverage, stale inputs, an expired proof, or a verification error is not equivalent to either pass or fail. An account age the bounded scan cannot establish is reported as unknown, never as zero.</p>
           </article>
         </div>
       </ContentSection>
@@ -238,7 +240,7 @@ export function ForCapitalProvidersPage({ onNavigate }: { onNavigate: (view: Sit
 
       <ContentSection eyebrow="Integration paths" title="Start with the workspace; design for verification anywhere">
         <div className="integration-table">
-          <div><span><Landmark size={19} />Hosted workspace</span><strong className="status-label status-label--success">Demo available</strong><p>Review requests, configure policies, verify fixture proofs, and return simulated offers.</p></div>
+          <div><span><Landmark size={19} />Hosted workspace</span><strong className="status-label status-label--success">Demo available</strong><p>Review published requests, configure policies, verify Groth16 receipts, and return offers. Every one of those steps is a call against the marketplace backend, not a local animation.</p></div>
           <div><span><Code2 size={19} />Verifier contract</span><strong className="status-label status-label--warning">Target design</strong><p>Verify proof and public inputs from an onchain settlement or lending contract.</p></div>
           <div><span><FileKey2 size={19} />API / SDK</span><strong className="status-label status-label--neutral">Planned</strong><p>Create policy challenges and consume typed verification results in an existing underwriting stack.</p></div>
         </div>
